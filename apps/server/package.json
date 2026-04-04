@@ -6,10 +6,17 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "lint": "eslint src --ext .js"
+    "lint": "eslint src --ext .js",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@types/node": "^22.19.17",
+    "nodemon": "^3.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@prisma/client": "^7.6.0",

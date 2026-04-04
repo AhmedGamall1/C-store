@@ -1,4 +1,7 @@
 -- CreateEnum
+CREATE TYPE "Role" AS ENUM ('CUSTOMER', 'ADMIN');
+
+-- CreateEnum
 CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED');
 
 -- CreateEnum
@@ -12,7 +15,7 @@ CREATE TABLE "users" (
     "firstName" TEXT NOT NULL,
     "lastName" TEXT NOT NULL,
     "phone" TEXT,
-    "role" TEXT NOT NULL DEFAULT 'CUSTOMER',
+    "role" "Role" NOT NULL DEFAULT 'CUSTOMER',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -97,7 +100,10 @@ CREATE TABLE "orders" (
     "total" DECIMAL(10,2) NOT NULL,
     "paymobOrderId" TEXT,
     "notes" TEXT,
-    "updatedAt" TIMESTAMP(3) NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "orders_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -143,9 +149,6 @@ CREATE UNIQUE INDEX "carts_userId_key" ON "carts"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "cart_items_cartId_productId_key" ON "cart_items"("cartId", "productId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "orders_id_key" ON "orders"("id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "reviews_userId_productId_key" ON "reviews"("userId", "productId");
