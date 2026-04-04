@@ -24,7 +24,10 @@ app.use(express.urlencoded({ extended: true }))
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
+    status: 'ok',
     message: 'C-Store API is running',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString(),
   })
 })
 
