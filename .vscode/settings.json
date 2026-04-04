@@ -9,5 +9,6 @@
     "eslint.workingDirectories": [
         "apps/client",
         "apps/server"
-    ]
+    ],
+    "prisma.pinToPrisma6": false
 }
