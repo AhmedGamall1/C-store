@@ -3,6 +3,8 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import dotenv from 'dotenv'
+import cookieParser from 'cookie-parser'
+import authRoutes from './routes/auth.routes.js'
 
 dotenv.config({ path: '../../.env' })
 
@@ -18,8 +20,12 @@ app.use(
   })
 )
 app.use(morgan('dev'))
+app.use(cookieParser())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// Routes
+app.use('/api/auth', authRoutes)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -41,10 +47,11 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(err.status || 500).json({
-    status: 'error',
+  const statusCode = err.statusCode || 500
+  res.status(statusCode).json({
+    status: err.status || 'error',
     message: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   })
 })
 

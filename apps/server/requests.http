@@ -1,0 +1,25 @@
+### Register
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "ahmed@cstore.com",
+  "password": "password123",
+  "firstName": "Ahmed",
+  "lastName": "Gamal"
+}
+
+### Login
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "ahmed@cstore.com",
+  "password": "password123"
+}
+
+### Get me
+GET http://localhost:5000/api/auth/me
+
+### Logout
+POST http://localhost:5000/api/auth/logout
