@@ -1,6 +1,9 @@
 import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
+import { deleteImage, uploadImage } from '../utils/cloudinary.util.js'
 import slugify from '../utils/slugify.js'
+
+const CATEGORIES_FOLDER = 'c-store/categories'
 
 // getAllCategories
 export const getAllCategories = async () => {
@@ -43,11 +46,15 @@ export const getCategoryBySlug = async (slug) => {
 }
 
 // Admin functions - createCategory
-export const createCategory = async (data) => {
-  const { name, description, imageUrl } = data
+export const createCategory = async (data, files) => {
+  const { name, description } = data
+  const { imageBuffer } = files
 
   if (!name) {
     throw new AppError('Category name is required', 400)
+  }
+  if (!imageBuffer) {
+    throw new AppError('Category image is required', 400)
   }
 
   const slug = slugify(name)
@@ -57,18 +64,26 @@ export const createCategory = async (data) => {
     throw new AppError('Category with this name already exists', 409)
   }
 
+  let imageUrl = data.imageUrl
+  let imagePublicId = null
+  const result = await uploadImage(imageBuffer, CATEGORIES_FOLDER)
+  imageUrl = result.secure_url
+  imagePublicId = result.public_id
+
   return prisma.category.create({
     data: {
       name: name.trim(),
       slug,
       description: description?.trim(),
       imageUrl,
+      imagePublicId,
     },
   })
 }
 
 // Admin functions - updateCategory
-export const updateCategory = async (id, data) => {
+export const updateCategory = async (id, data, files = {}) => {
+  const { imageBuffer } = files
   const category = await prisma.category.findUnique({ where: { id } })
 
   if (!category) {
@@ -92,6 +107,13 @@ export const updateCategory = async (id, data) => {
 
   if (data.isActive !== undefined) {
     updateData.isActive = data.isActive
+  }
+
+  if (imageBuffer) {
+    await deleteImage(category.imagePublicId)
+    const result = await uploadImage(imageBuffer, CATEGORIES_FOLDER)
+    updateData.imageUrl = result.secure_url
+    updateData.imagePublicId = result.public_id
   }
 
   return prisma.category.update({

@@ -7,6 +7,7 @@ import {
   deleteCategory,
 } from '../controllers/category.controller.js'
 import { protect, restrictTo } from '../middlewares/auth.middleware.js'
+import upload, { handleMulterError } from '../middlewares/upload.middlware.js'
 
 const router = Router()
 
@@ -15,8 +16,22 @@ router.get('/', getAllCategories)
 router.get('/:slug', getCategoryBySlug)
 
 // admin only routes
-router.post('/', protect, restrictTo('ADMIN'), createCategory)
-router.patch('/:id', protect, restrictTo('ADMIN'), updateCategory)
+router.post(
+  '/',
+  protect,
+  restrictTo('ADMIN'),
+  upload.single('image'),
+  handleMulterError,
+  createCategory
+)
+router.patch(
+  '/:id',
+  protect,
+  restrictTo('ADMIN'),
+  upload.single('image'),
+  handleMulterError,
+  updateCategory
+)
 router.delete('/:id', protect, restrictTo('ADMIN'), deleteCategory)
 
 export default router

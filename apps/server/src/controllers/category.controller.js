@@ -21,20 +21,22 @@ export const getCategoryBySlug = async (req, res) => {
 
 // POST /api/categories/
 export const createCategory = async (req, res) => {
-  const category = await categoryService.createCategory(req.body)
-  res.status(201).json({
-    status: 'success',
-    data: { category },
+  const category = await categoryService.createCategory(req.body, {
+    imageBuffer: req.file?.buffer ?? null,
   })
+  res.status(201).json({ status: 'success', data: { category } })
 }
 
 // PATCH /api/categories/:id
 export const updateCategory = async (req, res) => {
-  const category = await categoryService.updateCategory(req.params.id, req.body)
-  res.json({
-    status: 'success',
-    data: { category },
-  })
+  const category = await categoryService.updateCategory(
+    req.params.id,
+    req.body,
+    {
+      imageBuffer: req.file?.buffer ?? null,
+    }
+  )
+  res.json({ status: 'success', data: { category } })
 }
 
 // DELETE /api/categories/:id

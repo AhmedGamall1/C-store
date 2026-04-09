@@ -1,6 +1,9 @@
 import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
+import { deleteImage, uploadImage } from '../utils/cloudinary.util.js'
 import slugify from '../utils/slugify.js'
+
+const PRODUCTS_FOLDER = 'c-store/products'
 
 // getAllProducts with pagination, filtering, sorting, and search
 export const getAllProducts = async (query) => {
@@ -115,21 +118,17 @@ export const getProductBySlug = async (slug) => {
 }
 
 // Admin functions - createProduct
-export const createProduct = async (data) => {
-  const {
-    name,
-    description,
-    price,
-    comparePrice,
-    stock,
-    sku,
-    imageUrl,
-    images,
-    categoryId,
-  } = data
+export const createProduct = async (data, files = {}) => {
+  const { name, description, price, comparePrice, stock, sku, categoryId } =
+    data
+  const { imageBuffer, galleryBuffers = [] } = files
 
   if (!name || !price || !categoryId) {
     throw new AppError('Name, price and category are required', 400)
+  }
+
+  if (!imageBuffer) {
+    throw new AppError('Product image is required', 400)
   }
 
   if (Number(price) <= 0) {
@@ -155,6 +154,19 @@ export const createProduct = async (data) => {
     throw new AppError('Product with this name already exists', 409)
   }
 
+  const result = await uploadImage(imageBuffer, PRODUCTS_FOLDER)
+  const imageUrl = result.secure_url
+  const imagePublicId = result.public_id
+
+  let images = []
+  let imagePublicIds = []
+  if (galleryBuffers.length) {
+    const results = await Promise.all(
+      galleryBuffers.map((buf) => uploadImage(buf, PRODUCTS_FOLDER))
+    )
+    images = results.map((r) => r.secure_url)
+    imagePublicIds = results.map((r) => r.public_id)
+  }
   return prisma.product.create({
     data: {
       name: name.trim(),
@@ -164,8 +176,10 @@ export const createProduct = async (data) => {
       comparePrice: comparePrice ? Number(comparePrice) : null,
       stock: stock ? Number(stock) : 0,
       sku: sku?.trim() ?? null,
-      imageUrl: imageUrl ?? null,
-      images: images ?? [],
+      imageUrl,
+      imagePublicId,
+      images,
+      imagePublicIds,
       categoryId,
     },
     include: {
@@ -177,7 +191,8 @@ export const createProduct = async (data) => {
 }
 
 // Admin functions - updateProduct
-export const updateProduct = async (id, data) => {
+export const updateProduct = async (id, data, files = {}) => {
+  const { imageBuffer, galleryBuffers = [] } = files
   const product = await prisma.product.findUnique({ where: { id } })
 
   if (!product) {
@@ -194,6 +209,21 @@ export const updateProduct = async (id, data) => {
     ...(comparePrice !== undefined && {
       comparePrice: comparePrice ? Number(comparePrice) : null,
     }),
+  }
+  if (imageBuffer) {
+    await deleteImage(product.imagePublicId)
+    const result = await uploadImage(imageBuffer, PRODUCTS_FOLDER)
+    updateData.imageUrl = result.secure_url
+    updateData.imagePublicId = result.public_id
+  }
+
+  if (galleryBuffers.length) {
+    await Promise.all(product.imagePublicIds.map(deleteImage))
+    const results = await Promise.all(
+      galleryBuffers.map((buf) => uploadImage(buf, PRODUCTS_FOLDER))
+    )
+    updateData.images = results.map((r) => r.secure_url)
+    updateData.imagePublicIds = results.map((r) => r.public_id)
   }
 
   return prisma.product.update({

@@ -20,20 +20,22 @@ export const getProductBySlug = async (req, res) => {
 
 //POST /api/products/
 export const createProduct = async (req, res) => {
-  const product = await productService.createProduct(req.body)
-  res.status(201).json({
-    status: 'success',
-    data: { product },
+  const files = req.files ?? {}
+  const product = await productService.createProduct(req.body, {
+    imageBuffer: files.image?.[0]?.buffer ?? null,
+    galleryBuffers: files.images?.map((f) => f.buffer) ?? [],
   })
+  res.status(201).json({ status: 'success', data: { product } })
 }
 
 // PATCH /api/products/:id
 export const updateProduct = async (req, res) => {
-  const product = await productService.updateProduct(req.params.id, req.body)
-  res.json({
-    status: 'success',
-    data: { product },
+  const files = req.files ?? {}
+  const product = await productService.updateProduct(req.params.id, req.body, {
+    imageBuffer: files.image?.[0]?.buffer ?? null,
+    galleryBuffers: files.images?.map((f) => f.buffer) ?? [],
   })
+  res.json({ status: 'success', data: { product } })
 }
 
 // DELETE /api/products/:id

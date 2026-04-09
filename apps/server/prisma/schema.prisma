@@ -49,6 +49,7 @@ model Category {
   slug        String   @unique
   description String?
   imageUrl    String
+  imagePublicId String
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -67,8 +68,10 @@ model Product {
   comparePrice Decimal? @db.Decimal(10, 2)
   stock        Int      @default(0)
   sku          String?  @unique
-  imageUrl     String?
-  images       String[]
+  imageUrl     String
+  imagePublicId String
+  images         String[]
+  imagePublicIds String[]
   isActive     Boolean  @default(true)
   categoryId   String
   createdAt    DateTime @default(now())
