@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser'
 import authRoutes from './routes/auth.routes.js'
 import categoryRoutes from './routes/category.routes.js'
 import productRoutes from './routes/product.routes.js'
+import cartRoutes from './routes/cart.routes.js'
 
 dotenv.config({ path: '../../.env' })
 
@@ -30,6 +31,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use('/api/auth', authRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/products', productRoutes)
+app.use('/api/cart', cartRoutes)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
