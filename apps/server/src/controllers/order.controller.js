@@ -5,3 +5,21 @@ export const createOrder = async (req, res) => {
   const order = await orderService.createOrder(req.user.id, req.body)
   res.status(201).json({ status: 'success', data: { order } })
 }
+
+// GET /api/orders
+export const getMyOrders = async (req, res) => {
+  const orders = await orderService.getMyOrders(req.user.id)
+  res.json({ status: 'success', results: orders.length, data: { orders } })
+}
+
+// GET /api/orders/:id
+export const getOrderById = async (req, res) => {
+  const order = await orderService.getOrderById(req.user.id, req.params.id)
+  res.json({ status: 'success', data: { order } })
+}
+
+// PATCH /api/orders/:id/cancel
+export const cancelOrder = async (req, res) => {
+  const order = await orderService.cancelOrder(req.user.id, req.params.id)
+  res.json({ status: 'success', data: { order } })
+}

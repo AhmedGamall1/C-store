@@ -141,3 +141,61 @@ export const createOrder = async (
 
   return order
 }
+
+// get user's orders
+export const getMyOrders = async (userId) => {
+  return prisma.order.findMany({
+    where: { userId },
+    include: orderInclude,
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+// get single user order by id
+export const getOrderById = async (userId, orderId) => {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: orderInclude,
+  })
+
+  if (!order || order.userId !== userId) {
+    throw new AppError('Order not found', 404)
+  }
+
+  return order
+}
+
+// cancel order
+export const cancelOrder = async (userId, orderId) => {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  })
+
+  if (!order || order.userId !== userId) {
+    throw new AppError('Order not found', 404)
+  }
+
+  if (order.status !== 'PENDING') {
+    throw new AppError(
+      `Cannot cancel an order with status: ${order.status}`,
+      400
+    )
+  }
+
+  // Restore stock + update status atomically
+  return prisma.$transaction(async (tx) => {
+    for (const item of order.items) {
+      await tx.product.update({
+        where: { id: item.productId },
+        data: { stock: { increment: item.quantity } },
+      })
+    }
+
+    return tx.order.update({
+      where: { id: orderId },
+      data: { status: 'CANCELLED', reservedUntil: null },
+      include: orderInclude,
+    })
+  })
+}
