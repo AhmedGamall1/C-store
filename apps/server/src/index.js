@@ -10,6 +10,7 @@ import productRoutes from './routes/product.routes.js'
 import cartRoutes from './routes/cart.routes.js'
 import shippingRoutes from './routes/shipping.routes.js'
 import orderRoutes from './routes/order.routes.js'
+import addressRoutes from './routes/address.routes.js'
 
 dotenv.config({ path: '../../.env' })
 
@@ -36,6 +37,7 @@ app.use('/api/products', productRoutes)
 app.use('/api/cart', cartRoutes)
 app.use('/api/shipping', shippingRoutes)
 app.use('/api/orders', orderRoutes)
+app.use('/api/addresses', addressRoutes)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
