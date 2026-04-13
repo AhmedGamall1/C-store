@@ -199,3 +199,10 @@ export const cancelOrder = async (userId, orderId) => {
     })
   })
 }
+
+export const savePaymobOrderId = async (orderId, paymobOrderId) => {
+  return prisma.order.update({
+    where: { id: orderId },
+    data: { paymobOrderId },
+  })
+}

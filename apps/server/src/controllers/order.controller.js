@@ -1,9 +1,28 @@
 import * as orderService from '../services/order.service.js'
+import { initiatePaymobPayment } from '../services/paymob.service.js'
 
 // POST /api/orders
 export const createOrder = async (req, res) => {
   const order = await orderService.createOrder(req.user.id, req.body)
-  res.status(201).json({ status: 'success', data: { order } })
+
+  if (order.paymentMethod !== 'PAYMOB') {
+    return res.status(201).json({ status: 'success', data: { order } })
+  }
+
+  const { iframeUrl, paymobOrderId } = await initiatePaymobPayment(
+    order,
+    req.user
+  )
+
+  await orderService.savePaymobOrderId(order.id, paymobOrderId)
+
+  return res.status(201).json({
+    status: 'success',
+    data: {
+      order: { ...order, paymobOrderId },
+      iframeUrl,
+    },
+  })
 }
 
 // GET /api/orders
