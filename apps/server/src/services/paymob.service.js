@@ -1,4 +1,6 @@
 import AppError from '../utils/AppError.js'
+import crypto from 'crypto'
+import prisma from '../config/database.js'
 
 const PAYMOB_API_URL = 'https://accept.paymob.com/api'
 
@@ -113,4 +115,84 @@ export const initiatePaymobPayment = async (order, user) => {
   const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${process.env.PAYMOB_IFRAME_ID}?payment_token=${paymentKey}`
 
   return { iframeUrl, paymobOrderId: String(paymobOrderId) }
+}
+
+export const verifyPaymobHmac = (body, receivedHmac) => {
+  const { obj } = body
+
+  const concatenated = [
+    obj.amount_cents,
+    obj.created_at,
+    obj.currency,
+    obj.error_occured,
+    obj.has_parent_transaction,
+    obj.id,
+    obj.integration_id,
+    obj.is_3d_secure,
+    obj.is_auth,
+    obj.is_capture,
+    obj.is_refunded,
+    obj.is_standalone_payment,
+    obj.is_voided,
+    obj.order?.id,
+    obj.owner,
+    obj.pending,
+    obj.source_data?.pan,
+    obj.source_data?.sub_type,
+    obj.source_data?.type,
+    obj.success,
+  ].join('')
+
+  const computed = crypto
+    .createHmac('sha512', process.env.PAYMOB_HMAC_SECRET)
+    .update(concatenated)
+    .digest('hex')
+
+  return computed === receivedHmac
+}
+
+export const handleWebhookTransaction = async (body) => {
+  const { obj } = body
+  const paymobOrderId = String(obj.order?.id)
+
+  const order = await prisma.order.findFirst({
+    where: { paymobOrderId },
+    include: { items: true },
+  })
+
+  // Unknown order or already in a terminal state — skip silently
+  if (
+    !order ||
+    order.paymentStatus === 'PAID' ||
+    order.status === 'CANCELLED'
+  ) {
+    return
+  }
+
+  // 3DS still in progress — Paymob will send another event when it settles
+  if (obj.pending === true) return
+
+  if (obj.success === true) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: 'PAID',
+        status: 'CONFIRMED',
+        reservedUntil: null,
+      },
+    })
+  } else {
+    await prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        })
+      }
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: 'CANCELLED', reservedUntil: null },
+      })
+    })
+  }
 }
