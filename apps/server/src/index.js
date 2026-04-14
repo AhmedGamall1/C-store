@@ -12,6 +12,7 @@ import shippingRoutes from './routes/shipping.routes.js'
 import orderRoutes from './routes/order.routes.js'
 import addressRoutes from './routes/address.routes.js'
 import paymobRoutes from './routes/paymob.routes.js'
+import { startStockExpiryJob } from './jobs/stockExpiry.job.js'
 
 dotenv.config({ path: '../../.env' })
 
@@ -72,6 +73,7 @@ app.use((err, req, res, _next) => {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
   console.log(`Environment: ${process.env.NODE_ENV}`)
+  startStockExpiryJob()
 })
 
 export default app
