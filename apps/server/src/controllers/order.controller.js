@@ -42,3 +42,20 @@ export const cancelOrder = async (req, res) => {
   const order = await orderService.cancelOrder(req.user.id, req.params.id)
   res.json({ status: 'success', data: { order } })
 }
+
+// GET /api/orders/admin  (admin only)
+export const getAllOrders = async (req, res) => {
+  const result = await orderService.getAllOrders(req.query)
+  res.json({
+    status: 'success',
+    results: result.orders.length,
+    data: { orders: result.orders, pagination: result.pagination },
+  })
+}
+
+// PATCH /api/orders/:id/status  (admin only)
+export const updateOrderStatus = async (req, res) => {
+  const { status } = req.body
+  const order = await orderService.updateOrderStatus(req.params.id, status)
+  res.json({ status: 'success', data: { order } })
+}

@@ -206,3 +206,118 @@ export const savePaymobOrderId = async (orderId, paymobOrderId) => {
     data: { paymobOrderId },
   })
 }
+
+///////////// Admin /////////////////
+
+const VALID_TRANSITIONS = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['PROCESSING', 'CANCELLED'],
+  PROCESSING: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
+}
+
+// Admin: get all orders with filtering + pagination
+export const getAllOrders = async (query) => {
+  const { page = 1, limit = 20, status, paymentStatus, paymentMethod } = query
+
+  const skip = (Number(page) - 1) * Number(limit)
+  const take = Number(limit)
+
+  const where = {}
+  if (status) where.status = status
+  if (paymentStatus) where.paymentStatus = paymentStatus
+  if (paymentMethod) where.paymentMethod = paymentMethod
+
+  const [orders, total] = await prisma.$transaction([
+    prisma.order.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        ...orderInclude,
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    }),
+    prisma.order.count({ where }),
+  ])
+
+  return {
+    orders,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: take,
+      totalPages: Math.ceil(total / take),
+      hasNextPage: skip + take < total,
+      hasPrevPage: Number(page) > 1,
+    },
+  }
+}
+
+// Admin: update order status with enforced transitions
+export const updateOrderStatus = async (orderId, newStatus) => {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: true },
+  })
+
+  if (!order) {
+    throw new AppError('Order not found', 404)
+  }
+
+  const allowed = VALID_TRANSITIONS[order.status]
+
+  if (!allowed || !allowed.includes(newStatus)) {
+    throw new AppError(
+      `Cannot transition from ${order.status} to ${newStatus}`,
+      400
+    )
+  }
+
+  // Cancellation → restore stock atomically
+  if (newStatus === 'CANCELLED') {
+    return prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { increment: item.quantity } },
+        })
+      }
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { status: 'CANCELLED', reservedUntil: null },
+        include: orderInclude,
+      })
+    })
+  }
+
+  // Normal transition
+  const updateData = { status: newStatus }
+
+  // COD delivered = payment collected
+  if (newStatus === 'DELIVERED' && order.paymentMethod === 'COD') {
+    updateData.paymentStatus = 'PAID'
+  }
+
+  // Confirming clears the reservation — it served its purpose
+  if (newStatus === 'CONFIRMED') {
+    updateData.reservedUntil = null
+  }
+
+  return prisma.order.update({
+    where: { id: orderId },
+    data: updateData,
+    include: orderInclude,
+  })
+}
