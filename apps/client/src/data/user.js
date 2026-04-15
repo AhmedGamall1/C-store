@@ -1,0 +1,75 @@
+export const CURRENT_USER = {
+  id: 'user-1',
+  firstName: 'Ahmed',
+  lastName: 'Hassan',
+  email: 'ahmed@example.com',
+  phone: '+20 10 1234 5678',
+  role: 'CUSTOMER',
+  isActive: true,
+  createdAt: '2025-08-12T09:30:00Z',
+}
+
+export const ADMIN_USER = {
+  id: 'admin-1',
+  firstName: 'Mariam',
+  lastName: 'El Sayed',
+  email: 'admin@c-store.eg',
+  role: 'ADMIN',
+}
+
+export const ADDRESSES = [
+  {
+    id: 'addr-1',
+    userId: 'user-1',
+    street: '12 El Nasr Road, Apt 5',
+    city: 'New Cairo',
+    governorate: 'Cairo',
+    isDefault: true,
+  },
+  {
+    id: 'addr-2',
+    userId: 'user-1',
+    street: '8 Syria Street, Building C',
+    city: 'Mohandessin',
+    governorate: 'Giza',
+    isDefault: false,
+  },
+  {
+    id: 'addr-3',
+    userId: 'user-1',
+    street: '44 Corniche El Nil',
+    city: 'Alexandria',
+    governorate: 'Alexandria',
+    isDefault: false,
+  },
+]
+
+export const GOVERNORATES = [
+  { slug: 'cairo', name: 'Cairo', cost: 30 },
+  { slug: 'giza', name: 'Giza', cost: 30 },
+  { slug: 'qaliubiya', name: 'Qaliubiya', cost: 35 },
+  { slug: 'alexandria', name: 'Alexandria', cost: 45 },
+  { slug: 'dakahlia', name: 'Dakahlia', cost: 50 },
+  { slug: 'sharqia', name: 'Sharqia', cost: 50 },
+  { slug: 'gharbiya', name: 'Gharbiya', cost: 50 },
+  { slug: 'menofia', name: 'Menofia', cost: 50 },
+  { slug: 'beheira', name: 'Beheira', cost: 50 },
+  { slug: 'kafr_el_sheikh', name: 'Kafr El Sheikh', cost: 50 },
+  { slug: 'damietta', name: 'Damietta', cost: 55 },
+  { slug: 'port_said', name: 'Port Said', cost: 55 },
+  { slug: 'ismailia', name: 'Ismailia', cost: 55 },
+  { slug: 'fayoum', name: 'Fayoum', cost: 55 },
+  { slug: 'beni_suef', name: 'Beni Suef', cost: 55 },
+  { slug: 'suez', name: 'Suez', cost: 60 },
+  { slug: 'minya', name: 'Minya', cost: 60 },
+  { slug: 'assiut', name: 'Assiut', cost: 65 },
+  { slug: 'sohag', name: 'Sohag', cost: 65 },
+  { slug: 'qena', name: 'Qena', cost: 70 },
+  { slug: 'luxor', name: 'Luxor', cost: 70 },
+  { slug: 'aswan', name: 'Aswan', cost: 75 },
+  { slug: 'red_sea', name: 'Red Sea', cost: 75 },
+  { slug: 'matrouh', name: 'Matrouh', cost: 80 },
+  { slug: 'north_sinai', name: 'North Sinai', cost: 80 },
+  { slug: 'south_sinai', name: 'South Sinai', cost: 80 },
+  { slug: 'new_valley', name: 'New Valley', cost: 85 },
+]

@@ -1,0 +1,65 @@
+import { Link } from 'react-router'
+import { Logo } from '@/components/common/Logo'
+import { Separator } from '@/components/ui/separator'
+import { CATEGORIES } from '@/data/categories'
+
+export function MobileNav() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="p-6 pb-4">
+        <Logo />
+      </div>
+      <Separator />
+      <nav className="flex-1 overflow-y-auto p-6">
+        <div className="space-y-1">
+          <Link
+            to="/shop"
+            className="block rounded-md px-3 py-2 text-sm font-medium uppercase tracking-wider hover:bg-secondary"
+          >
+            Shop All
+          </Link>
+          {CATEGORIES.map((c) => (
+            <Link
+              key={c.id}
+              to={`/shop?category=${c.slug}`}
+              className="block rounded-md px-3 py-2 text-sm font-medium uppercase tracking-wider hover:bg-secondary"
+            >
+              {c.name}
+            </Link>
+          ))}
+          <Link
+            to="/lookbook"
+            className="block rounded-md px-3 py-2 text-sm font-medium uppercase tracking-wider hover:bg-secondary"
+          >
+            Lookbook
+          </Link>
+        </div>
+
+        <Separator className="my-4" />
+
+        <div className="space-y-1 text-sm">
+          <Link to="/account" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+            My Account
+          </Link>
+          <Link to="/account/orders" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+            My Orders
+          </Link>
+          <Link to="/account/addresses" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+            Addresses
+          </Link>
+        </div>
+
+        <Separator className="my-4" />
+
+        <div className="space-y-1 text-sm">
+          <Link to="/login" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+            Sign In
+          </Link>
+          <Link to="/register" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+            Create Account
+          </Link>
+        </div>
+      </nav>
+    </div>
+  )
+}
