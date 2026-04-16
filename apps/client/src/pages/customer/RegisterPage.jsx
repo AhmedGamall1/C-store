@@ -170,10 +170,17 @@ export default function RegisterPage() {
               <Input
                 id="phone"
                 type="tel"
+                inputMode="numeric"
                 autoComplete="tel"
                 placeholder="+20 10 1234 5678"
+                aria-invalid={Boolean(errors.phone)}
                 {...register('phone')}
               />
+              {errors.phone ? (
+                <p className="text-xs text-destructive">
+                  {errors.phone.message}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">

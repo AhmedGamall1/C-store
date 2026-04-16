@@ -1,7 +1,8 @@
 import { api } from '@/lib/api'
 
 export async function login({ email, password }) {
-  return api.post('/auth/login', { email, password })
+  const res = await api.post('/auth/login', { email, password })
+  return res.data.user
 }
 
 export async function register({
@@ -11,13 +12,14 @@ export async function register({
   phone,
   password,
 }) {
-  return api.post('/auth/register', {
+  const res = await api.post('/auth/register', {
     firstName,
     lastName,
     email,
     phone: phone || undefined,
     password,
   })
+  return res.data.user
 }
 
 export async function logout() {
@@ -25,5 +27,6 @@ export async function logout() {
 }
 
 export async function getMe() {
-  return api.get('/auth/me')
+  const res = await api.get('/auth/me')
+  return res.data.user
 }

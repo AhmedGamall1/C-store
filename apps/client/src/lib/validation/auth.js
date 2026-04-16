@@ -13,6 +13,7 @@ export const registerSchema = z.object({
     .string()
     .optional()
     .or(z.literal(''))
+    .refine((v) => !v || /^[+\d\s-]+$/.test(v), 'Enter a valid phone number')
     .transform((v) => (v === '' ? undefined : v)),
   password: z
     .string()

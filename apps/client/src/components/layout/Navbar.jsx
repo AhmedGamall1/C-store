@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router'
-import { Heart, Menu, Search, ShoppingBag, User } from 'lucide-react'
+import {
+  Heart,
+  Menu,
+  Search,
+  ShoppingBag,
+  User,
+  ShieldCheck,
+  UserCheck,
+} from 'lucide-react'
 import { Logo } from '@/components/common/Logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +18,7 @@ import { cartItemCount } from '@/data/cart'
 import { CartDrawer } from './CartDrawer'
 import { MobileNav } from './MobileNav'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/providers/AuthProvider'
 
 const NAV_LINKS = [
   { to: '/shop', label: 'Shop All' },
@@ -18,8 +27,16 @@ const NAV_LINKS = [
 ]
 
 export function Navbar() {
+  const { isAuthenticated, isAdmin } = useAuth()
   const [searchOpen, setSearchOpen] = useState(false)
   const count = cartItemCount()
+
+  const accountHref = isAdmin
+    ? '/admin'
+    : isAuthenticated
+      ? '/account'
+      : '/login'
+  const AccountIcon = isAdmin ? ShieldCheck : isAuthenticated ? UserCheck : User
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/70">
@@ -69,9 +86,9 @@ export function Navbar() {
           >
             <Search className="h-5 w-5" />
           </Button>
-          <Link to="/account" aria-label="Account">
+          <Link to={accountHref} aria-label="Account">
             <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
+              <AccountIcon className="h-5 w-5" />
             </Button>
           </Link>
           <Link
