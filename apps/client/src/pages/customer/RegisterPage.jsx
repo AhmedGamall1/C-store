@@ -1,46 +1,65 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Eye, EyeOff, ArrowRight, Check } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/common/Logo'
+import { useAuth } from '@/providers/AuthProvider'
+import { registerSchema } from '@/lib/validation/auth'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const { register: registerUser } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      password: '',
+    },
   })
 
-  const onChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
-
-  const onSubmit = (e) => {
-    e.preventDefault()
-    navigate('/')
-  }
-
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const password = watch('password')
   const pwChecks = [
-    { label: 'At least 8 characters', ok: form.password.length >= 8 },
-    { label: 'One uppercase letter', ok: /[A-Z]/.test(form.password) },
-    { label: 'One number', ok: /\d/.test(form.password) },
+    { label: 'At least 8 characters', ok: password.length >= 8 },
+    { label: 'One uppercase letter', ok: /[A-Z]/.test(password) },
+    { label: 'One number', ok: /\d/.test(password) },
   ]
+
+  const onSubmit = async (values) => {
+    try {
+      const user = await registerUser(values)
+      toast.success(`Welcome to C-Store, ${user.firstName}`)
+      navigate('/', { replace: true })
+    } catch (e) {
+      toast.error(e.message)
+    }
+  }
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
-      {/* Visual side (flipped vs login) */}
+      {/* Visual side (unchanged) */}
       <div className="relative hidden overflow-hidden bg-foreground lg:block">
         <img
           src="https://picsum.photos/seed/cstore-register/1200/1600"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-80"
         />
-        <div className="absolute inset-0 bg-gradient-to-bl from-foreground/80 via-foreground/40 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-bl from-foreground/80 via-foreground/40 to-transparent" />
         <div className="relative flex h-full flex-col justify-between p-12 text-background">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em]">
             <span className="inline-block h-1.5 w-6 bg-accent" />
@@ -91,29 +110,39 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-5">
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="mt-8 space-y-5"
+            noValidate
+          >
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First name</Label>
                 <Input
                   id="firstName"
-                  name="firstName"
                   autoComplete="given-name"
-                  value={form.firstName}
-                  onChange={onChange}
-                  required
+                  aria-invalid={Boolean(errors.firstName)}
+                  {...register('firstName')}
                 />
+                {errors.firstName ? (
+                  <p className="text-xs text-destructive">
+                    {errors.firstName.message}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Last name</Label>
                 <Input
                   id="lastName"
-                  name="lastName"
                   autoComplete="family-name"
-                  value={form.lastName}
-                  onChange={onChange}
-                  required
+                  aria-invalid={Boolean(errors.lastName)}
+                  {...register('lastName')}
                 />
+                {errors.lastName ? (
+                  <p className="text-xs text-destructive">
+                    {errors.lastName.message}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -121,14 +150,17 @@ export default function RegisterPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                name="email"
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
-                value={form.email}
-                onChange={onChange}
-                required
+                aria-invalid={Boolean(errors.email)}
+                {...register('email')}
               />
+              {errors.email ? (
+                <p className="text-xs text-destructive">
+                  {errors.email.message}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -137,12 +169,10 @@ export default function RegisterPage() {
               </Label>
               <Input
                 id="phone"
-                name="phone"
                 type="tel"
                 autoComplete="tel"
                 placeholder="+20 10 1234 5678"
-                value={form.phone}
-                onChange={onChange}
+                {...register('phone')}
               />
             </div>
 
@@ -151,13 +181,11 @@ export default function RegisterPage() {
               <div className="relative">
                 <Input
                   id="password"
-                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
                   placeholder="••••••••"
-                  value={form.password}
-                  onChange={onChange}
-                  required
+                  aria-invalid={Boolean(errors.password)}
+                  {...register('password')}
                 />
                 <button
                   type="button"
@@ -172,7 +200,7 @@ export default function RegisterPage() {
                   )}
                 </button>
               </div>
-              {form.password ? (
+              {password ? (
                 <ul className="mt-2 space-y-1 text-xs">
                   {pwChecks.map((c) => (
                     <li
@@ -192,11 +220,27 @@ export default function RegisterPage() {
                   ))}
                 </ul>
               ) : null}
+              {errors.password ? (
+                <p className="text-xs text-destructive">
+                  {errors.password.message}
+                </p>
+              ) : null}
             </div>
 
-            <Button type="submit" size="lg" className="w-full">
-              Create account
-              <ArrowRight className="h-4 w-4" />
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Create account
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </Button>
           </form>
 

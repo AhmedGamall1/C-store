@@ -3,6 +3,8 @@ import { createBrowserRouter } from 'react-router'
 import { CustomerLayout } from '@/components/layout/CustomerLayout'
 import { AccountLayout } from '@/components/account/AccountLayout'
 import { AdminLayout } from '@/components/admin/AdminLayout'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { AdminRoute } from '@/components/auth/AdminRoute'
 
 import HomePage from '@/pages/customer/HomePage'
 import ShopPage from '@/pages/customer/ShopPage'
@@ -28,11 +30,11 @@ import AdminOrderDetailPage from '@/pages/admin/orders/AdminOrderDetailPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 
 export const router = createBrowserRouter([
-  // Auth routes live outside the CustomerLayout (full-bleed split layout)
+  // Public auth routes (full-bleed, no layout)
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
 
-  // Customer-facing storefront
+  // Customer storefront — public
   {
     element: <CustomerLayout />,
     children: [
@@ -41,38 +43,47 @@ export const router = createBrowserRouter([
       { path: 'shop/:category', element: <ShopPage /> },
       { path: 'product/:slug', element: <ProductDetailPage /> },
       { path: 'cart', element: <CartPage /> },
-      { path: 'checkout', element: <CheckoutPage /> },
-      { path: 'order/success/:id', element: <OrderConfirmationPage /> },
 
-      // Account area (nested layout for the sidebar)
+      // Auth-required under the same customer layout
       {
-        path: 'account',
-        element: <AccountLayout />,
+        element: <ProtectedRoute />,
         children: [
-          { index: true, element: <ProfilePage /> },
-          { path: 'orders', element: <OrdersPage /> },
-          { path: 'orders/:id', element: <OrderDetailPage /> },
-          { path: 'addresses', element: <AddressesPage /> },
+          { path: 'checkout', element: <CheckoutPage /> },
+          { path: 'order/success/:id', element: <OrderConfirmationPage /> },
+          {
+            path: 'account',
+            element: <AccountLayout />,
+            children: [
+              { index: true, element: <ProfilePage /> },
+              { path: 'orders', element: <OrdersPage /> },
+              { path: 'orders/:id', element: <OrderDetailPage /> },
+              { path: 'addresses', element: <AddressesPage /> },
+            ],
+          },
         ],
       },
 
-      // Catch-all under customer layout
       { path: '*', element: <NotFoundPage /> },
     ],
   },
 
-  // Admin dashboard
+  // Admin — requires ADMIN role
   {
-    path: '/admin',
-    element: <AdminLayout />,
+    element: <AdminRoute />,
     children: [
-      { index: true, element: <DashboardPage /> },
-      { path: 'products', element: <AdminProductsPage /> },
-      { path: 'products/new', element: <ProductFormPage /> },
-      { path: 'products/:id', element: <ProductFormPage /> },
-      { path: 'categories', element: <AdminCategoriesPage /> },
-      { path: 'orders', element: <AdminOrdersPage /> },
-      { path: 'orders/:id', element: <AdminOrderDetailPage /> },
+      {
+        path: '/admin',
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <DashboardPage /> },
+          { path: 'products', element: <AdminProductsPage /> },
+          { path: 'products/new', element: <ProductFormPage /> },
+          { path: 'products/:id', element: <ProductFormPage /> },
+          { path: 'categories', element: <AdminCategoriesPage /> },
+          { path: 'orders', element: <AdminOrdersPage /> },
+          { path: 'orders/:id', element: <AdminOrderDetailPage /> },
+        ],
+      },
     ],
   },
 ])

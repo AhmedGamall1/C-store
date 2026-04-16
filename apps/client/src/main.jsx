@@ -5,19 +5,22 @@ import { Toaster } from 'sonner'
 import { router } from './router.jsx'
 import { QueryProvider } from './providers/QueryProvider.jsx'
 import './index.css'
+import { AuthProvider } from './providers/AuthProvider.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <QueryProvider>
-      <RouterProvider router={router} />
-      <Toaster
-        position="top-right"
-        richColors
-        closeButton
-        toastOptions={{
-          className: 'font-medium',
-        }}
-      />
+      <AuthProvider>
+        <RouterProvider router={router} />
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          toastOptions={{
+            className: 'font-medium',
+          }}
+        />
+      </AuthProvider>
     </QueryProvider>
   </StrictMode>
 )

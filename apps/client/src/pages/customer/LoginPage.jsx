@@ -1,23 +1,40 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { Link, useNavigate, useLocation } from 'react-router'
+import { Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/common/Logo'
+import { useAuth } from '@/providers/AuthProvider'
+import { loginSchema } from '@/lib/validation/auth'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
-  const [form, setForm] = useState({ email: '', password: '' })
 
-  const onChange = (e) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  })
 
-  const onSubmit = (e) => {
-    e.preventDefault()
-    // Static UI — just route home for now
-    navigate('/')
+  const onSubmit = async (values) => {
+    try {
+      const user = await login(values)
+      toast.success(`Welcome back, ${user.firstName}`)
+      const to = location.state?.from ?? '/'
+      navigate(to, { replace: true })
+    } catch (e) {
+      toast.error(e.message)
+    }
   }
 
   return (
@@ -45,19 +62,26 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <form onSubmit={onSubmit} className="mt-8 space-y-5">
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="mt-8 space-y-5"
+            noValidate
+          >
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                name="email"
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
-                value={form.email}
-                onChange={onChange}
-                required
+                aria-invalid={Boolean(errors.email)}
+                {...register('email')}
               />
+              {errors.email ? (
+                <p className="text-xs text-destructive">
+                  {errors.email.message}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-2">
@@ -73,13 +97,11 @@ export default function LoginPage() {
               <div className="relative">
                 <Input
                   id="password"
-                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  value={form.password}
-                  onChange={onChange}
-                  required
+                  aria-invalid={Boolean(errors.password)}
+                  {...register('password')}
                 />
                 <button
                   type="button"
@@ -94,20 +116,27 @@ export default function LoginPage() {
                   )}
                 </button>
               </div>
+              {errors.password ? (
+                <p className="text-xs text-destructive">
+                  {errors.password.message}
+                </p>
+              ) : null}
             </div>
 
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-foreground"
-                defaultChecked
-              />
-              Keep me signed in
-            </label>
-
-            <Button type="submit" size="lg" className="w-full">
-              Sign in
-              <ArrowRight className="h-4 w-4" />
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </Button>
           </form>
 
@@ -125,14 +154,13 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Visual side */}
       <div className="relative hidden overflow-hidden bg-foreground lg:block">
         <img
           src="https://picsum.photos/seed/cstore-login/1200/1600"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-80"
         />
-        <div className="absolute inset-0 bg-gradient-to-tr from-foreground/80 via-foreground/40 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-tr from-foreground/80 via-foreground/40 to-transparent" />
         <div className="relative flex h-full flex-col justify-between p-12 text-background">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em]">
             <span className="inline-block h-1.5 w-6 bg-accent" />
