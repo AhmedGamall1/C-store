@@ -13,19 +13,20 @@ import { Logo } from '@/components/common/Logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { cartItemCount } from '@/data/cart'
 import { CartDrawer } from './CartDrawer'
 import { MobileNav } from './MobileNav'
 import { cn } from '@/lib/utils'
 import { useCategories } from '@/hooks/useCategories'
 import { useAuth } from '@/providers/AuthProvider'
+import { useCart } from '@/hooks/useCart'
 
 export function Navbar() {
   const { data: categories = [] } = useCategories()
 
   const { isAuthenticated, isAdmin } = useAuth()
   const [searchOpen, setSearchOpen] = useState(false)
-  const count = cartItemCount()
+  const { cart } = useCart()
+  const count = cart.totalItems
 
   const navLinks = [
     { to: '/shop', label: 'Shop All' },
