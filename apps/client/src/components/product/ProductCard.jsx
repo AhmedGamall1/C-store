@@ -6,7 +6,8 @@ import { cn, formatEGP } from '@/lib/utils'
 
 export function ProductCard({ product, className }) {
   const soldOut = product.stock === 0
-  const onSale = product.comparePrice && Number(product.comparePrice) > Number(product.price)
+  const onSale =
+    product.comparePrice && Number(product.comparePrice) > Number(product.price)
   const discountPct = onSale
     ? Math.round(
         ((Number(product.comparePrice) - Number(product.price)) /

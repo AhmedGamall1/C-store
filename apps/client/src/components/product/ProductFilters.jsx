@@ -2,39 +2,50 @@ import { useState } from 'react'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { CATEGORIES } from '@/data/categories'
 
-const SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+export function ProductFilters({
+  categories = [],
+  activeCategory = '',
+  minPrice = '',
+  maxPrice = '',
+  onFilterChange,
+}) {
+  // Price inputs are local state until user clicks "Apply"
+  // (we don't want to fire an API call on every keystroke)
+  const [localMin, setLocalMin] = useState(minPrice)
+  const [localMax, setLocalMax] = useState(maxPrice)
 
-export function ProductFilters() {
-  const [selectedCat, setSelectedCat] = useState('all')
-  const [selectedSizes, setSelectedSizes] = useState([])
+  const handleCategoryClick = (slug) => {
+    // 'all' means no category filter → clear it
+    onFilterChange('category', slug === 'all' ? '' : slug)
+  }
 
-  const toggleSize = (s) =>
-    setSelectedSizes((cur) =>
-      cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]
-    )
+  const handlePriceApply = () => {
+    onFilterChange('minPrice', localMin)
+    onFilterChange('maxPrice', localMax)
+  }
 
   return (
     <aside className="space-y-6 text-sm">
       <Section title="Category">
         <ul className="space-y-1.5">
-          {[{ slug: 'all', name: 'All products' }, ...CATEGORIES].map((c) => (
+          {[{ slug: 'all', name: 'All products' }, ...categories].map((c) => (
             <li key={c.slug}>
               <button
                 type="button"
-                onClick={() => setSelectedCat(c.slug)}
+                onClick={() => handleCategoryClick(c.slug)}
                 className={
                   'flex w-full items-center justify-between rounded-sm px-2 py-1 text-left transition-colors hover:bg-secondary ' +
-                  (selectedCat === c.slug
+                  (activeCategory === c.slug ||
+                  (!activeCategory && c.slug === 'all')
                     ? 'font-semibold'
                     : 'text-muted-foreground')
                 }
               >
                 {c.name}
-                {c.productCount ? (
+                {c._count?.products != null ? (
                   <span className="text-xs tabular opacity-60">
-                    {c.productCount}
+                    {c._count.products}
                   </span>
                 ) : null}
               </button>
@@ -47,45 +58,30 @@ export function ProductFilters() {
 
       <Section title="Price (EGP)">
         <div className="flex items-center gap-2">
-          <Input type="number" placeholder="Min" min="0" />
+          <Input
+            type="number"
+            placeholder="Min"
+            min="0"
+            value={localMin}
+            onChange={(e) => setLocalMin(e.target.value)}
+          />
           <span className="text-muted-foreground">—</span>
-          <Input type="number" placeholder="Max" min="0" />
+          <Input
+            type="number"
+            placeholder="Max"
+            min="0"
+            value={localMax}
+            onChange={(e) => setLocalMax(e.target.value)}
+          />
         </div>
-        <Button variant="outline" size="sm" className="mt-3 w-full">
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3 w-full"
+          onClick={handlePriceApply}
+        >
           Apply
         </Button>
-      </Section>
-
-      <Separator />
-
-      <Section title="Size">
-        <div className="grid grid-cols-3 gap-2">
-          {SIZES.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => toggleSize(s)}
-              className={
-                'h-9 rounded-md border text-xs font-semibold transition-colors ' +
-                (selectedSizes.includes(s)
-                  ? 'border-foreground bg-foreground text-background'
-                  : 'border-border hover:border-foreground')
-              }
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <Separator />
-
-      <Section title="Availability">
-        <ul className="space-y-2">
-          <CheckboxRow label="In stock" />
-          <CheckboxRow label="On sale" />
-          <CheckboxRow label="New arrivals" />
-        </ul>
       </Section>
     </aside>
   )
@@ -99,19 +95,5 @@ function Section({ title, children }) {
       </h4>
       {children}
     </div>
-  )
-}
-
-function CheckboxRow({ label }) {
-  return (
-    <li>
-      <label className="flex cursor-pointer items-center gap-2.5">
-        <input
-          type="checkbox"
-          className="h-4 w-4 rounded border-border accent-foreground"
-        />
-        <span>{label}</span>
-      </label>
-    </li>
   )
 }

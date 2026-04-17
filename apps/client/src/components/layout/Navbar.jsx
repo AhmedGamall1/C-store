@@ -13,23 +13,28 @@ import { Logo } from '@/components/common/Logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { CATEGORIES } from '@/data/categories'
 import { cartItemCount } from '@/data/cart'
 import { CartDrawer } from './CartDrawer'
 import { MobileNav } from './MobileNav'
 import { cn } from '@/lib/utils'
+import { useCategories } from '@/hooks/useCategories'
 import { useAuth } from '@/providers/AuthProvider'
 
-const NAV_LINKS = [
-  { to: '/shop', label: 'Shop All' },
-  ...CATEGORIES.map((c) => ({ to: `/shop?category=${c.slug}`, label: c.name })),
-  { to: '/lookbook', label: 'Lookbook' },
-]
-
 export function Navbar() {
+  const { data: categories = [] } = useCategories()
+
   const { isAuthenticated, isAdmin } = useAuth()
   const [searchOpen, setSearchOpen] = useState(false)
   const count = cartItemCount()
+
+  const navLinks = [
+    { to: '/shop', label: 'Shop All' },
+    ...categories.map((c) => ({
+      to: `/shop?category=${c.slug}`,
+      label: c.name,
+    })),
+    { to: '/lookbook', label: 'Lookbook' },
+  ]
 
   const accountHref = isAdmin
     ? '/admin'
@@ -60,7 +65,7 @@ export function Navbar() {
 
         {/* Desktop nav */}
         <nav className="ml-6 hidden items-center gap-6 lg:flex">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <NavLink
               key={link.to}
               to={link.to}

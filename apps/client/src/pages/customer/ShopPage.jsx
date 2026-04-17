@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { SlidersHorizontal, X } from 'lucide-react'
+import { useSearchParams, useParams } from 'react-router'
+import { SlidersHorizontal, X, Loader2, PackageOpen } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -19,19 +19,73 @@ import { Badge } from '@/components/ui/badge'
 import { ProductGrid } from '@/components/product/ProductGrid'
 import { ProductFilters } from '@/components/product/ProductFilters'
 import { Pagination } from '@/components/product/Pagination'
-import { PRODUCTS } from '@/data/products'
+import { useProducts } from '@/hooks/useProducts'
+import { useCategories } from '@/hooks/useCategories'
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
-  { value: 'bestsellers', label: 'Bestsellers' },
   { value: 'price-asc', label: 'Price: Low to High' },
   { value: 'price-desc', label: 'Price: High to Low' },
   { value: 'name', label: 'Alphabetical' },
 ]
 
+// Map frontend sort value → backend params
+const SORT_MAP = {
+  newest: { sortBy: 'createdAt', order: 'desc' },
+  'price-asc': { sortBy: 'price', order: 'asc' },
+  'price-desc': { sortBy: 'price', order: 'desc' },
+  name: { sortBy: 'name', order: 'asc' },
+}
+
 export default function ShopPage() {
-  const [page, setPage] = useState(1)
-  const products = PRODUCTS
+  const { category: pathCategory } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Read every filter from URL (single source of truth)
+  const category = pathCategory || searchParams.get('category') || ''
+  const minPrice = searchParams.get('minPrice') || ''
+  const maxPrice = searchParams.get('maxPrice') || ''
+  const search = searchParams.get('search') || ''
+  const sort = searchParams.get('sort') || 'newest'
+  const page = Number(searchParams.get('page')) || 1
+
+  // Build the API params object
+  const sortParams = SORT_MAP[sort] || SORT_MAP.newest
+  const filters = {
+    page,
+    ...sortParams,
+    ...(category && { category }),
+    ...(minPrice && { minPrice }),
+    ...(maxPrice && { maxPrice }),
+    ...(search && { search }),
+  }
+
+  const { data, isLoading, isError } = useProducts(filters)
+  const { data: categories = [] } = useCategories()
+
+  const products = data?.products ?? []
+  const pagination = data?.pagination ?? { page: 1, totalPages: 1 }
+
+  // Helper: update a searchParam, reset page to 1 on filter change
+  const setFilter = (key, value) => {
+    setSearchParams((prev) => {
+      // eslint-disable-next-line no-undef
+      const next = new URLSearchParams(prev)
+      if (value) {
+        next.set(key, value)
+      } else {
+        next.delete(key)
+      }
+      // Any filter change resets to page 1 (except page itself)
+      if (key !== 'page') next.delete('page')
+      return next
+    })
+  }
+
+  // Find category name for the header
+  const activeCategoryName = category
+    ? categories.find((c) => c.slug === category)?.name
+    : null
 
   return (
     <>
@@ -41,15 +95,20 @@ export default function ShopPage() {
           <nav className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             <span>Home</span>
             <span className="mx-2">/</span>
-            <span className="text-foreground">Shop</span>
+            <span className="text-foreground">
+              {activeCategoryName || 'Shop'}
+            </span>
           </nav>
           <h1 className="mt-3 font-display text-4xl font-bold tracking-tight sm:text-5xl">
-            Shop All
+            {activeCategoryName || 'Shop All'}
           </h1>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            {products.length} pieces. Shirts, jeans and sweaters built to wear
-            through seasons.
-          </p>
+          {!isLoading && (
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              {pagination.total ?? products.length} piece
+              {(pagination.total ?? products.length) !== 1 ? 's' : ''}. Shirts,
+              jeans and sweaters built to wear through seasons.
+            </p>
+          )}
         </div>
       </section>
 
@@ -57,7 +116,13 @@ export default function ShopPage() {
         <div className="grid gap-10 lg:grid-cols-[240px_1fr]">
           {/* Desktop filters */}
           <div className="hidden lg:block">
-            <ProductFilters />
+            <ProductFilters
+              categories={categories}
+              activeCategory={category}
+              minPrice={minPrice}
+              maxPrice={maxPrice}
+              onFilterChange={setFilter}
+            />
           </div>
 
           {/* Right column */}
@@ -78,20 +143,35 @@ export default function ShopPage() {
                       <SheetTitle>Filters</SheetTitle>
                     </SheetHeader>
                     <div className="mt-6">
-                      <ProductFilters />
+                      <ProductFilters
+                        categories={categories}
+                        activeCategory={category}
+                        minPrice={minPrice}
+                        maxPrice={maxPrice}
+                        onFilterChange={setFilter}
+                      />
                     </div>
                   </SheetContent>
                 </Sheet>
 
-                <ActiveFilters />
+                <ActiveFilters
+                  category={activeCategoryName}
+                  minPrice={minPrice}
+                  maxPrice={maxPrice}
+                  search={search}
+                  onRemove={setFilter}
+                />
               </div>
 
               <div className="flex items-center gap-3">
                 <span className="hidden text-xs uppercase tracking-wider text-muted-foreground sm:inline">
                   Sort by
                 </span>
-                <Select defaultValue="newest">
-                  <SelectTrigger className="w-[180px]">
+                <Select
+                  value={sort}
+                  onValueChange={(v) => setFilter('sort', v)}
+                >
+                  <SelectTrigger className="w-45">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -105,13 +185,41 @@ export default function ShopPage() {
               </div>
             </div>
 
-            {/* Grid */}
-            <ProductGrid products={products} />
-
-            {/* Pagination */}
-            <div className="pt-8">
-              <Pagination page={page} totalPages={3} onChange={setPage} />
-            </div>
+            {/* Content states */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : isError ? (
+              <div className="py-20 text-center text-sm text-muted-foreground">
+                Something went wrong loading products. Please try again.
+              </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-20 text-center">
+                <PackageOpen className="h-10 w-10 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  No products match your filters.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchParams({})}
+                >
+                  Clear all filters
+                </Button>
+              </div>
+            ) : (
+              <>
+                <ProductGrid products={products} />
+                <div className="pt-8">
+                  <Pagination
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    onChange={(p) => setFilter('page', String(p))}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -119,19 +227,37 @@ export default function ShopPage() {
   )
 }
 
-function ActiveFilters() {
-  const chips = ['Shirts', 'Size: M', 'In stock']
+/** Shows active filter chips with remove buttons */
+function ActiveFilters({ category, minPrice, maxPrice, search, onRemove }) {
+  const chips = []
+  if (category) chips.push({ label: category, key: 'category' })
+  if (minPrice) chips.push({ label: `Min: ${minPrice} EGP`, key: 'minPrice' })
+  if (maxPrice) chips.push({ label: `Max: ${maxPrice} EGP`, key: 'maxPrice' })
+  if (search) chips.push({ label: `"${search}"`, key: 'search' })
+
+  if (chips.length === 0) return null
+
   return (
     <div className="hidden items-center gap-2 sm:flex">
       {chips.map((chip) => (
-        <Badge key={chip} variant="outline" className="gap-1.5 normal-case tracking-normal font-medium">
-          {chip}
-          <button aria-label={`Remove ${chip}`}>
+        <Badge
+          key={chip.key}
+          variant="outline"
+          className="gap-1.5 normal-case tracking-normal font-medium"
+        >
+          {chip.label}
+          <button
+            aria-label={`Remove ${chip.label}`}
+            onClick={() => onRemove(chip.key, '')}
+          >
             <X className="h-3 w-3" />
           </button>
         </Badge>
       ))}
-      <button className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground">
+      <button
+        className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        onClick={() => onRemove('_clearAll', '')}
+      >
         Clear all
       </button>
     </div>
