@@ -1,10 +1,17 @@
-import { Link } from 'react-router'
-import { Heart } from 'lucide-react'
+import { Link, useNavigate, useLocation } from 'react-router'
+import { Heart, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/providers/AuthProvider'
+import { useAddToCart } from '@/hooks/useCart'
 import { cn, formatEGP } from '@/lib/utils'
 
 export function ProductCard({ product, className }) {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const addToCart = useAddToCart()
+
   const soldOut = product.stock === 0
   const onSale =
     product.comparePrice && Number(product.comparePrice) > Number(product.price)
@@ -15,6 +22,19 @@ export function ProductCard({ product, className }) {
           100
       )
     : 0
+
+  const handleQuickAdd = (e) => {
+    // The card is wrapped in a <Link>. Stop both the click and any default nav.
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
+
+    addToCart.mutate({ productId: product.id, quantity: 1 })
+  }
 
   return (
     <article className={cn('group relative flex flex-col', className)}>
@@ -58,7 +78,10 @@ export function ProductCard({ product, className }) {
           size="icon"
           className="absolute right-3 top-3 h-8 w-8 rounded-full opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
           aria-label="Add to wishlist"
-          onClick={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
         >
           <Heart className="h-4 w-4" />
         </Button>
@@ -67,10 +90,16 @@ export function ProductCard({ product, className }) {
         <div className="pointer-events-none absolute inset-x-3 bottom-3 translate-y-2 opacity-0 transition-all duration-300 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
           <Button
             className="w-full"
-            disabled={soldOut}
-            onClick={(e) => e.preventDefault()}
+            disabled={soldOut || addToCart.isPending}
+            onClick={handleQuickAdd}
           >
-            {soldOut ? 'Sold Out' : 'Quick Add'}
+            {addToCart.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : soldOut ? (
+              'Sold Out'
+            ) : (
+              'Quick Add'
+            )}
           </Button>
         </div>
       </Link>

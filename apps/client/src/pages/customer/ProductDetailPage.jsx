@@ -1,4 +1,5 @@
-import { useParams, Link } from 'react-router'
+import { useParams, Link, useNavigate, useLocation } from 'react-router'
+import { useState } from 'react'
 import {
   Heart,
   ShieldCheck,
@@ -21,6 +22,8 @@ import { StarRating } from '@/components/product/StarRating'
 import { SectionHeader } from '@/components/common/SectionHeader'
 import { useProduct, useProducts } from '@/hooks/useProducts'
 import { formatEGP } from '@/lib/utils'
+import { useAuth } from '@/providers/AuthProvider'
+import { useAddToCart } from '@/hooks/useCart'
 
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL']
 
@@ -37,6 +40,11 @@ function avgRating(reviews = []) {
 
 export default function ProductDetailPage() {
   const { slug } = useParams()
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const addToCart = useAddToCart()
+  const [quantity, setQuantity] = useState(1)
   const { data: product, isLoading, isError } = useProduct(slug)
 
   // Fetch related products (same category, for the "you might like" section)
@@ -75,9 +83,23 @@ export default function ProductDetailPage() {
   const tag = deriveTag(product.stock)
   const rating = avgRating(product.reviews)
   const reviewCount = product._count?.reviews ?? product.reviews?.length ?? 0
+
   const onSale =
     product.comparePrice && Number(product.comparePrice) > Number(product.price)
+
   const soldOut = product.stock === 0
+
+  const maxQty = product.stock
+  const dec = () => setQuantity((q) => Math.max(1, q - 1))
+  const inc = () => setQuantity((q) => Math.min(maxQty, q + 1))
+
+  const handleAddToCart = () => {
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location.pathname } })
+      return
+    }
+    addToCart.mutate({ productId: product.id, quantity })
+  }
 
   // Use product.images if available, otherwise wrap the single imageUrl
   const images =
@@ -169,25 +191,40 @@ export default function ProductDetailPage() {
               <div className="inline-flex items-center rounded-md border">
                 <button
                   type="button"
-                  className="grid h-12 w-10 place-items-center text-muted-foreground hover:text-foreground"
+                  className="grid h-12 w-10 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
                   aria-label="Decrease quantity"
+                  onClick={dec}
+                  disabled={quantity <= 1}
                 >
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="min-w-[3ch] px-2 text-center text-sm tabular">
-                  1
+                  {quantity}
                 </span>
                 <button
                   type="button"
-                  className="grid h-12 w-10 place-items-center text-muted-foreground hover:text-foreground"
+                  className="grid h-12 w-10 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
                   aria-label="Increase quantity"
+                  onClick={inc}
+                  disabled={quantity >= maxQty}
                 >
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
-              <Button size="xl" className="flex-1" disabled={soldOut}>
-                <ShoppingBag className="h-4 w-4" />
-                {soldOut ? 'Sold Out' : 'Add to Cart'}
+              <Button
+                size="xl"
+                className="flex-1"
+                disabled={soldOut || addToCart.isPending}
+                onClick={handleAddToCart}
+              >
+                {addToCart.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <ShoppingBag className="h-4 w-4" />
+                    {soldOut ? 'Sold Out' : 'Add to Cart'}
+                  </>
+                )}
               </Button>
               <Button size="xl" variant="outline" aria-label="Add to wishlist">
                 <Heart className="h-4 w-4" />
