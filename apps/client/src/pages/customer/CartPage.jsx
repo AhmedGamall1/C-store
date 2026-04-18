@@ -1,15 +1,23 @@
 import { Link } from 'react-router'
-import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
+import { Minus, Plus, ShoppingBag, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { EmptyState } from '@/components/common/EmptyState'
-import { CART_ITEMS, cartSubtotal } from '@/data/cart'
+import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/hooks/useCart'
 import { cn, formatEGP } from '@/lib/utils'
 
 export default function CartPage() {
-  const items = CART_ITEMS
-  const subtotal = cartSubtotal(items)
+  const { cart, isLoading } = useCart()
+  const { items, total, totalItems } = cart
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-40">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   if (items.length === 0) {
     return (
@@ -34,72 +42,14 @@ export default function CartPage() {
         Cart
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {items.length} {items.length === 1 ? 'item' : 'items'} in your cart.
+        {totalItems} {totalItems === 1 ? 'item' : 'items'} in your cart.
       </p>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_380px]">
         {/* Items */}
         <ul className="divide-y">
           {items.map((item) => (
-            <li key={item.id} className="flex gap-4 py-6 first:pt-0">
-              <Link
-                to={`/product/${item.product.slug}`}
-                className="relative block h-32 w-24 shrink-0 overflow-hidden rounded-md bg-secondary sm:h-40 sm:w-32"
-              >
-                <img
-                  src={item.product.imageUrl}
-                  alt={item.product.name}
-                  className="aspect-product h-full w-full object-cover"
-                />
-              </Link>
-              <div className="flex flex-1 flex-col">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                      {item.product.category.name}
-                    </p>
-                    <Link
-                      to={`/product/${item.product.slug}`}
-                      className="mt-1 block text-sm font-medium hover:underline sm:text-base"
-                    >
-                      {item.product.name}
-                    </Link>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Size {item.size}
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold tabular sm:text-base">
-                    {formatEGP(Number(item.product.price) * item.quantity)}
-                  </p>
-                </div>
-
-                <div className="mt-auto flex items-center justify-between">
-                  <div className="inline-flex items-center rounded-md border">
-                    <button
-                      type="button"
-                      className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground"
-                      aria-label="Decrease"
-                    >
-                      <Minus className="h-3 w-3" />
-                    </button>
-                    <span className="min-w-[2ch] px-2 text-center text-sm tabular">
-                      {item.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground"
-                      aria-label="Increase"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground">
-                    <Trash2 className="h-4 w-4" />
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            </li>
+            <CartLineItem key={item.id} item={item} />
           ))}
         </ul>
 
@@ -111,7 +61,7 @@ export default function CartPage() {
             </h2>
 
             <div className="mt-5 space-y-2 text-sm">
-              <Row label="Subtotal" value={formatEGP(subtotal)} />
+              <Row label="Subtotal" value={formatEGP(total)} />
               <Row
                 label="Shipping"
                 value={
@@ -123,12 +73,12 @@ export default function CartPage() {
               <Separator className="my-4" />
               <Row
                 label="Total"
-                value={formatEGP(subtotal)}
+                value={formatEGP(total)}
                 className="text-base font-semibold"
               />
             </div>
 
-            {/* Promo */}
+            {/* Promo — not wired yet */}
             <div className="mt-5">
               <label className="text-xs uppercase tracking-wider text-muted-foreground">
                 Promo code
@@ -150,6 +100,96 @@ export default function CartPage() {
         </aside>
       </div>
     </div>
+  )
+}
+
+function CartLineItem({ item }) {
+  const updateItem = useUpdateCartItem()
+  const removeItem = useRemoveCartItem()
+
+  const busy = updateItem.isPending || removeItem.isPending
+  const maxQty = item.product.stock
+
+  const inc = () => {
+    if (item.quantity >= maxQty) return
+    updateItem.mutate({
+      productId: item.productId,
+      quantity: item.quantity + 1,
+    })
+  }
+  const dec = () => {
+    if (item.quantity <= 1) return
+    updateItem.mutate({
+      productId: item.productId,
+      quantity: item.quantity - 1,
+    })
+  }
+  const remove = () => removeItem.mutate(item.productId)
+
+  return (
+    <li className="flex gap-4 py-6 first:pt-0">
+      <Link
+        to={`/product/${item.product.slug}`}
+        className="relative block h-32 w-24 shrink-0 overflow-hidden rounded-md bg-secondary sm:h-40 sm:w-32"
+      >
+        <img
+          src={item.product.imageUrl}
+          alt={item.product.name}
+          className="aspect-product h-full w-full object-cover"
+        />
+      </Link>
+      <div className="flex flex-1 flex-col">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Link
+              to={`/product/${item.product.slug}`}
+              className="mt-1 block text-sm font-medium hover:underline sm:text-base"
+            >
+              {item.product.name}
+            </Link>
+          </div>
+          <p className="text-sm font-semibold tabular sm:text-base">
+            {formatEGP(item.subtotal)}
+          </p>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between">
+          <div className="inline-flex items-center rounded-md border">
+            <button
+              type="button"
+              className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
+              aria-label="Decrease"
+              onClick={dec}
+              disabled={busy || item.quantity <= 1}
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <span className="min-w-[2ch] px-2 text-center text-sm tabular">
+              {item.quantity}
+            </span>
+            <button
+              type="button"
+              className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
+              aria-label="Increase"
+              onClick={inc}
+              disabled={busy || item.quantity >= maxQty}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground"
+            onClick={remove}
+            disabled={busy}
+          >
+            <Trash2 className="h-4 w-4" />
+            Remove
+          </Button>
+        </div>
+      </div>
+    </li>
   )
 }
 

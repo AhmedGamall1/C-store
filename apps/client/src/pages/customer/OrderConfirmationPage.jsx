@@ -1,17 +1,25 @@
 import { Link, useParams } from 'react-router'
-import { Check, Package, Truck } from 'lucide-react'
+import { Check, Package, Truck, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { CART_ITEMS, cartSubtotal } from '@/data/cart'
 import { ADDRESSES } from '@/data/user'
+import { useCart } from '@/hooks/useCart'
 import { formatEGP } from '@/lib/utils'
 
 export default function OrderConfirmationPage() {
   const { id } = useParams()
-  const items = CART_ITEMS
-  const subtotal = cartSubtotal(items)
+  const { cart, isLoading } = useCart()
+  const { items, total } = cart
   const shipping = 30
-  const total = subtotal + shipping
+  const grandTotal = total + shipping
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-40">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   return (
     <div className="container-page max-w-3xl py-14">
@@ -57,11 +65,11 @@ export default function OrderConfirmationPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium">{item.product.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Size {item.size} · Qty {item.quantity}
+                    Qty {item.quantity}
                   </p>
                 </div>
                 <p className="text-sm font-semibold tabular">
-                  {formatEGP(Number(item.product.price) * item.quantity)}
+                  {formatEGP(item.subtotal)}
                 </p>
               </li>
             ))}
@@ -71,12 +79,12 @@ export default function OrderConfirmationPage() {
         <Separator />
 
         <div className="space-y-2 p-6 text-sm">
-          <Row label="Subtotal" value={formatEGP(subtotal)} />
+          <Row label="Subtotal" value={formatEGP(total)} />
           <Row label="Shipping" value={formatEGP(shipping)} />
           <Separator className="my-2" />
           <Row
             label="Total"
-            value={formatEGP(total)}
+            value={formatEGP(grandTotal)}
             className="text-base font-semibold"
           />
         </div>
@@ -106,7 +114,9 @@ export default function OrderConfirmationPage() {
       {/* CTAs */}
       <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <Button asChild size="lg">
-          <Link to={`/account/orders/${id || 'ord-demo-1234'}`}>View order</Link>
+          <Link to={`/account/orders/${id || 'ord-demo-1234'}`}>
+            View order
+          </Link>
         </Button>
         <Button asChild size="lg" variant="outline">
           <Link to="/shop">Keep shopping</Link>

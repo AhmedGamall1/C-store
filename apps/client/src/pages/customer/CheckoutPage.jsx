@@ -1,6 +1,13 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
-import { ArrowLeft, ArrowRight, CreditCard, MapPin, Truck, Wallet } from 'lucide-react'
+import { useNavigate, Navigate } from 'react-router'
+import {
+  ArrowLeft,
+  ArrowRight,
+  CreditCard,
+  MapPin,
+  Truck,
+  Wallet,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,18 +21,21 @@ import {
 } from '@/components/ui/select'
 import { CheckoutSteps } from '@/components/checkout/CheckoutSteps'
 import { OrderSummary } from '@/components/checkout/OrderSummary'
-import { CART_ITEMS } from '@/data/cart'
 import { ADDRESSES, GOVERNORATES } from '@/data/user'
 import { cn, formatEGP } from '@/lib/utils'
-
+import { useCart } from '@/hooks/useCart'
 const STEPS = ['Address', 'Shipping', 'Payment', 'Review']
 
 export default function CheckoutPage() {
+  const { cart, isLoading } = useCart()
   const [step, setStep] = useState(0)
   const [addressId, setAddressId] = useState(ADDRESSES[0]?.id)
   const [shippingGov, setShippingGov] = useState('cairo')
   const [paymentMethod, setPaymentMethod] = useState('PAYMOB')
   const navigate = useNavigate()
+  if (!isLoading && cart.items.length === 0) {
+    return <Navigate to="/cart" replace />
+  }
 
   const shippingCost =
     GOVERNORATES.find((g) => g.slug === shippingGov)?.cost ?? 30
@@ -49,19 +59,13 @@ export default function CheckoutPage() {
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_380px]">
         <div className="space-y-8">
           {step === 0 ? (
-            <AddressStep
-              addressId={addressId}
-              onChange={setAddressId}
-            />
+            <AddressStep addressId={addressId} onChange={setAddressId} />
           ) : null}
           {step === 1 ? (
             <ShippingStep value={shippingGov} onChange={setShippingGov} />
           ) : null}
           {step === 2 ? (
-            <PaymentStep
-              value={paymentMethod}
-              onChange={setPaymentMethod}
-            />
+            <PaymentStep value={paymentMethod} onChange={setPaymentMethod} />
           ) : null}
           {step === 3 ? (
             <ReviewStep
@@ -73,11 +77,7 @@ export default function CheckoutPage() {
           <Separator />
 
           <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={back}
-              disabled={step === 0}
-            >
+            <Button variant="outline" onClick={back} disabled={step === 0}>
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
@@ -88,7 +88,10 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <OrderSummary items={CART_ITEMS} shipping={step >= 1 ? shippingCost : 0} />
+        <OrderSummary
+          items={cart.items}
+          shipping={step >= 1 ? shippingCost : 0}
+        />
       </div>
     </div>
   )
@@ -98,7 +101,11 @@ export default function CheckoutPage() {
 function AddressStep({ addressId, onChange }) {
   return (
     <section>
-      <Header icon={MapPin} title="Shipping Address" subtitle="Where should we send it?" />
+      <Header
+        icon={MapPin}
+        title="Shipping Address"
+        subtitle="Where should we send it?"
+      />
       <div className="mt-6 space-y-3">
         {ADDRESSES.map((a) => (
           <label
@@ -119,7 +126,9 @@ function AddressStep({ addressId, onChange }) {
             />
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <p className="font-medium">{a.city}, {a.governorate}</p>
+                <p className="font-medium">
+                  {a.city}, {a.governorate}
+                </p>
                 {a.isDefault ? (
                   <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-background">
                     Default
@@ -150,9 +159,7 @@ function ShippingStep({ value, onChange }) {
       />
       <div className="mt-6 space-y-3">
         <div>
-          <Label className="text-xs uppercase tracking-wider">
-            Deliver to
-          </Label>
+          <Label className="text-xs uppercase tracking-wider">Deliver to</Label>
           <Select value={value} onValueChange={onChange}>
             <SelectTrigger className="mt-2">
               <SelectValue />
@@ -226,9 +233,7 @@ function PaymentOption({ value, current, onClick, icon: Icon, title, desc }) {
       onClick={() => onClick(value)}
       className={cn(
         'flex w-full items-center gap-4 rounded-md border p-4 text-left transition-colors',
-        active
-          ? 'border-foreground bg-secondary/50'
-          : 'hover:border-foreground'
+        active ? 'border-foreground bg-secondary/50' : 'hover:border-foreground'
       )}
     >
       <span
@@ -264,13 +269,17 @@ function ReviewStep({ address, paymentMethod }) {
       />
 
       <ReviewSection title="Shipping Address">
-        <p>{address?.city}, {address?.governorate}</p>
+        <p>
+          {address?.city}, {address?.governorate}
+        </p>
         <p className="text-sm text-muted-foreground">{address?.street}</p>
       </ReviewSection>
 
       <ReviewSection title="Payment">
         <p>
-          {paymentMethod === 'PAYMOB' ? 'Paymob (online card)' : 'Cash on Delivery'}
+          {paymentMethod === 'PAYMOB'
+            ? 'Paymob (online card)'
+            : 'Cash on Delivery'}
         </p>
       </ReviewSection>
 

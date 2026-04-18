@@ -1,9 +1,14 @@
 import { Separator } from '@/components/ui/separator'
-import { cartSubtotal } from '@/data/cart'
 import { cn, formatEGP } from '@/lib/utils'
 
 export function OrderSummary({ items, shipping = 0, className }) {
-  const subtotal = cartSubtotal(items)
+  // Prefer server-computed subtotal per line; fall back for callers that
+  // haven't computed it yet (e.g. an order-items list later).
+  const subtotal = items.reduce(
+    (sum, item) =>
+      sum + (item.subtotal ?? Number(item.product.price) * item.quantity),
+    0
+  )
   const total = subtotal + shipping
 
   return (
@@ -32,10 +37,11 @@ export function OrderSummary({ items, shipping = 0, className }) {
             </div>
             <div className="flex-1 text-sm">
               <p className="line-clamp-1 font-medium">{item.product.name}</p>
-              <p className="text-xs text-muted-foreground">Size {item.size}</p>
             </div>
             <p className="text-sm font-semibold tabular">
-              {formatEGP(Number(item.product.price) * item.quantity)}
+              {formatEGP(
+                item.subtotal ?? Number(item.product.price) * item.quantity
+              )}
             </p>
           </li>
         ))}
@@ -47,7 +53,13 @@ export function OrderSummary({ items, shipping = 0, className }) {
         <Row label="Subtotal" value={formatEGP(subtotal)} />
         <Row
           label="Shipping"
-          value={shipping > 0 ? formatEGP(shipping) : <span className="text-muted-foreground">—</span>}
+          value={
+            shipping > 0 ? (
+              formatEGP(shipping)
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )
+          }
         />
         <Separator className="my-2" />
         <Row
