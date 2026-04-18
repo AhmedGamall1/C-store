@@ -20,12 +20,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PRODUCTS } from '@/data/products'
-import { CATEGORIES } from '@/data/categories'
 import { formatEGP } from '@/lib/utils'
+import { useCategories } from '@/hooks/useCategories'
 
 export default function AdminProductsPage() {
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('all')
+  const { data: categories = [] } = useCategories()
 
   const filtered = PRODUCTS.filter((p) => {
     const matchQ =
@@ -60,7 +61,7 @@ export default function AdminProductsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-background p-4">
-        <div className="relative min-w-[220px] flex-1">
+        <div className="relative min-w-55 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search by name or SKU…"
@@ -75,7 +76,7 @@ export default function AdminProductsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <SelectItem key={c.slug} value={c.slug}>
                 {c.name}
               </SelectItem>

@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PRODUCTS } from '@/data/products'
-import { CATEGORIES } from '@/data/categories'
+import { useCategories } from '@/hooks/useCategories'
 
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 
@@ -22,6 +22,7 @@ export default function ProductFormPage() {
   const navigate = useNavigate()
   const isEdit = id && id !== 'new'
   const product = isEdit ? PRODUCTS.find((p) => p.id === id) : null
+  const { data: categories = [] } = useCategories()
 
   const onSubmit = (e) => {
     e.preventDefault()
@@ -41,7 +42,7 @@ export default function ProductFormPage() {
             All products
           </Link>
           <h1 className="mt-2 font-display text-3xl font-bold tracking-tight">
-            {isEdit ? product?.name ?? 'Edit product' : 'New product'}
+            {isEdit ? (product?.name ?? 'Edit product') : 'New product'}
           </h1>
           {product ? (
             <p className="mt-1 font-mono text-xs text-muted-foreground">
@@ -231,7 +232,7 @@ export default function ProductFormPage() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((c) => (
+                    {categories.map((c) => (
                       <SelectItem key={c.slug} value={c.slug}>
                         {c.name}
                       </SelectItem>
@@ -290,9 +291,7 @@ export default function ProductFormPage() {
 function Section({ title, subtitle, compact, children }) {
   return (
     <section
-      className={
-        'rounded-lg border bg-background ' + (compact ? 'p-4' : 'p-6')
-      }
+      className={'rounded-lg border bg-background ' + (compact ? 'p-4' : 'p-6')}
     >
       <div>
         <h2 className="font-display text-lg font-semibold">{title}</h2>

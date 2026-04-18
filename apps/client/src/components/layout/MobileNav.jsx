@@ -1,9 +1,10 @@
 import { Link } from 'react-router'
 import { Logo } from '@/components/common/Logo'
 import { Separator } from '@/components/ui/separator'
-import { CATEGORIES } from '@/data/categories'
+import { useCategories } from '@/hooks/useCategories'
 
 export function MobileNav() {
+  const { data: categories = [] } = useCategories()
   return (
     <div className="flex h-full flex-col">
       <div className="p-6 pb-4">
@@ -18,7 +19,7 @@ export function MobileNav() {
           >
             Shop All
           </Link>
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <Link
               key={c.id}
               to={`/shop?category=${c.slug}`}
@@ -38,13 +39,22 @@ export function MobileNav() {
         <Separator className="my-4" />
 
         <div className="space-y-1 text-sm">
-          <Link to="/account" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+          <Link
+            to="/account"
+            className="block px-3 py-2 text-muted-foreground hover:text-foreground"
+          >
             My Account
           </Link>
-          <Link to="/account/orders" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+          <Link
+            to="/account/orders"
+            className="block px-3 py-2 text-muted-foreground hover:text-foreground"
+          >
             My Orders
           </Link>
-          <Link to="/account/addresses" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+          <Link
+            to="/account/addresses"
+            className="block px-3 py-2 text-muted-foreground hover:text-foreground"
+          >
             Addresses
           </Link>
         </div>
@@ -52,10 +62,16 @@ export function MobileNav() {
         <Separator className="my-4" />
 
         <div className="space-y-1 text-sm">
-          <Link to="/login" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+          <Link
+            to="/login"
+            className="block px-3 py-2 text-muted-foreground hover:text-foreground"
+          >
             Sign In
           </Link>
-          <Link to="/register" className="block px-3 py-2 text-muted-foreground hover:text-foreground">
+          <Link
+            to="/register"
+            className="block px-3 py-2 text-muted-foreground hover:text-foreground"
+          >
             Create Account
           </Link>
         </div>

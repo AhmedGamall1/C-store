@@ -1,5 +1,7 @@
-import { useState } from 'react'
-import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react'
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable no-undef */
+import { useEffect, useRef, useState } from 'react'
+import { ImagePlus, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,19 +14,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { CATEGORIES } from '@/data/categories'
+import {
+  useCategories,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+} from '@/hooks/useCategories'
 
 export default function AdminCategoriesPage() {
-  const [open, setOpen] = useState(false)
+  const { data: categories = [], isLoading } = useCategories()
+
+  const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
   const startAdd = () => {
     setEditing(null)
-    setOpen(true)
+    setFormOpen(true)
   }
   const startEdit = (cat) => {
     setEditing(cat)
-    setOpen(true)
+    setFormOpen(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-40">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   return (
@@ -38,7 +56,7 @@ export default function AdminCategoriesPage() {
             Categories
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {CATEGORIES.length} categories total
+            {categories.length} categories total
           </p>
         </div>
         <Button onClick={startAdd}>
@@ -48,26 +66,30 @@ export default function AdminCategoriesPage() {
       </div>
 
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {CATEGORIES.map((c) => (
+        {categories.map((c) => (
           <li
             key={c.id}
             className="group overflow-hidden rounded-lg border bg-background"
           >
-            <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
+            <div className="relative aspect-4/3 overflow-hidden bg-secondary">
               <img
                 src={c.imageUrl}
                 alt=""
                 className="h-full w-full object-cover transition-transform group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-foreground/10 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-foreground/60 via-foreground/10 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-4 text-background">
                 <p className="font-display text-xl font-bold">{c.name}</p>
-                <p className="text-xs opacity-80">{c.productCount} products</p>
+                <p className="text-xs opacity-80">
+                  {c._count?.products ?? 0} products
+                </p>
               </div>
             </div>
             <div className="space-y-3 p-4">
               <p className="line-clamp-2 text-sm text-muted-foreground">
-                {c.description}
+                {c.description || (
+                  <span className="italic opacity-60">No description</span>
+                )}
               </p>
               <div className="flex items-center justify-between border-t pt-3">
                 <p className="font-mono text-xs text-muted-foreground">
@@ -87,6 +109,7 @@ export default function AdminCategoriesPage() {
                     size="icon"
                     className="text-destructive hover:text-destructive"
                     aria-label="Delete"
+                    onClick={() => setConfirmDelete(c)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -97,10 +120,21 @@ export default function AdminCategoriesPage() {
         ))}
       </ul>
 
+      {categories.length === 0 ? (
+        <p className="rounded-lg border bg-background p-10 text-center text-sm text-muted-foreground">
+          No categories yet. Create one to get started.
+        </p>
+      ) : null}
+
       <CategoryDialog
-        open={open}
-        onOpenChange={setOpen}
+        open={formOpen}
+        onOpenChange={setFormOpen}
         category={editing}
+      />
+
+      <DeleteCategoryDialog
+        category={confirmDelete}
+        onClose={() => setConfirmDelete(null)}
       />
     </div>
   )
@@ -108,6 +142,66 @@ export default function AdminCategoriesPage() {
 
 function CategoryDialog({ open, onOpenChange, category }) {
   const isEdit = Boolean(category)
+  const createMutation = useCreateCategory()
+  const updateMutation = useUpdateCategory()
+  const submitting = createMutation.isPending || updateMutation.isPending
+
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [imageFile, setImageFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const fileInputRef = useRef(null)
+
+  // Sync form when dialog opens/category changes
+  useEffect(() => {
+    if (!open) return
+    setName(category?.name ?? '')
+    setDescription(category?.description ?? '')
+    setImageFile(null)
+    setPreviewUrl(null)
+  }, [open, category])
+
+  // Manage blob URL lifecycle so we don't leak memory
+  useEffect(() => {
+    if (!imageFile) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(imageFile)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imageFile])
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0]
+    if (file) setImageFile(file)
+  }
+
+  const onSubmit = async (e) => {
+    e.preventDefault()
+    try {
+      if (isEdit) {
+        await updateMutation.mutateAsync({
+          id: category.id,
+          name: name !== category.name ? name : undefined,
+          description:
+            description !== (category.description ?? '')
+              ? description
+              : undefined,
+          imageFile: imageFile ?? undefined,
+        })
+      } else {
+        if (!imageFile) return // the server requires an image on create; mirror that on the client
+        await createMutation.mutateAsync({ name, description, imageFile })
+      }
+      onOpenChange(false)
+    } catch {
+      // error toast handled by the hook
+    }
+  }
+
+  const displayedImage = previewUrl || category?.imageUrl
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -122,56 +216,67 @@ function CategoryDialog({ open, onOpenChange, category }) {
           </DialogDescription>
         </DialogHeader>
 
-        <form
-          className="grid gap-4"
-          onSubmit={(e) => {
-            e.preventDefault()
-            onOpenChange(false)
-          }}
-        >
+        <form className="grid gap-4" onSubmit={onSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="cat-name">Name</Label>
             <Input
               id="cat-name"
-              defaultValue={category?.name ?? ''}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Shirts"
+              required
             />
+            <p className="text-xs text-muted-foreground">
+              Slug will be generated from the name.
+            </p>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="cat-slug">Slug</Label>
-            <Input
-              id="cat-slug"
-              defaultValue={category?.slug ?? ''}
-              placeholder="shirts"
-            />
-          </div>
+
           <div className="grid gap-2">
             <Label htmlFor="cat-desc">Description</Label>
             <Textarea
               id="cat-desc"
               rows={3}
-              defaultValue={category?.description ?? ''}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Short description shown on the category page."
             />
           </div>
+
           <div className="grid gap-2">
-            <Label>Cover image</Label>
-            <div className="aspect-[4/3] overflow-hidden rounded-md border bg-secondary">
-              {category?.imageUrl ? (
-                <img
-                  src={category.imageUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
+            <Label>Cover image {isEdit ? '(optional)' : ''}</Label>
+            <div className="relative aspect-4/3 overflow-hidden rounded-md border bg-secondary">
+              {displayedImage ? (
+                <>
+                  <img
+                    src={displayedImage}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 grid place-items-center bg-foreground/0 text-sm font-medium text-background opacity-0 transition-opacity hover:bg-foreground/60 hover:opacity-100"
+                  >
+                    Change image
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
+                  onClick={() => fileInputRef.current?.click()}
                   className="flex h-full w-full flex-col items-center justify-center gap-2 text-xs text-muted-foreground hover:bg-secondary/80"
                 >
                   <ImagePlus className="h-5 w-5" />
                   Upload cover
                 </button>
               )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFile}
+              />
             </div>
           </div>
 
@@ -180,14 +285,70 @@ function CategoryDialog({ open, onOpenChange, category }) {
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
+              disabled={submitting}
             >
               Cancel
             </Button>
-            <Button type="submit">
-              {isEdit ? 'Save changes' : 'Create category'}
+            <Button type="submit" disabled={submitting}>
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isEdit ? (
+                'Save changes'
+              ) : (
+                'Create category'
+              )}
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function DeleteCategoryDialog({ category, onClose }) {
+  const deleteMutation = useDeleteCategory()
+
+  const onConfirm = async () => {
+    try {
+      await deleteMutation.mutateAsync(category.id)
+      onClose()
+    } catch {
+      // error toast handled by hook; keep dialog open so user can read reason
+    }
+  }
+
+  return (
+    <Dialog open={Boolean(category)} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete category?</DialogTitle>
+          <DialogDescription>
+            You\u2019re about to delete{' '}
+            <span className="font-semibold">{category?.name}</span>. This action
+            can\u2019t be undone. Categories with products can\u2019t be
+            deleted.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={deleteMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={deleteMutation.isPending}
+          >
+            {deleteMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              'Delete'
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
