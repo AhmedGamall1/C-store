@@ -2,8 +2,9 @@ import * as orderService from '../services/order.service.js'
 import { initiatePaymobPayment } from '../services/paymob.service.js'
 
 // POST /api/orders
+// Accessible by both guests and logged-in users (optionalAuth middleware).
 export const createOrder = async (req, res) => {
-  const order = await orderService.createOrder(req.user, req.body)
+  const order = await orderService.createOrder(req.user ?? null, req.body)
 
   if (order.paymentMethod !== 'PAYMOB') {
     return res.status(201).json({ status: 'success', data: { order } })
@@ -11,7 +12,7 @@ export const createOrder = async (req, res) => {
 
   const { iframeUrl, paymobOrderId } = await initiatePaymobPayment(
     order,
-    req.user
+    req.user ?? null
   )
 
   await orderService.savePaymobOrderId(order.id, paymobOrderId)

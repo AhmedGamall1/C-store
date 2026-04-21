@@ -7,13 +7,19 @@ import {
   getOrderById,
   updateOrderStatus,
 } from '../controllers/order.controller.js'
-import { protect, restrictTo } from '../middlewares/auth.middleware.js'
+import {
+  optionalAuth,
+  protect,
+  restrictTo,
+} from '../middlewares/auth.middleware.js'
 
 const router = Router()
 
+// Create order — works for both logged-in users and guests
+router.post('/', optionalAuth, createOrder)
+
 router.use(protect)
 
-router.post('/', createOrder)
 router.get('/', getMyOrders)
 
 router.get('/admin', restrictTo('ADMIN'), getAllOrders)
