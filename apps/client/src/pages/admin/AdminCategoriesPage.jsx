@@ -204,7 +204,7 @@ function CategoryDialog({ open, onOpenChange, category }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEdit ? 'Edit category' : 'Add new category'}
@@ -244,7 +244,7 @@ function CategoryDialog({ open, onOpenChange, category }) {
 
           <div className="grid gap-2">
             <Label>Cover image {isEdit ? '(optional)' : ''}</Label>
-            <div className="relative aspect-4/3 overflow-hidden rounded-md border bg-secondary">
+            <div className="relative h-40 overflow-hidden rounded-md border bg-secondary">
               {displayedImage ? (
                 <>
                   <img
