@@ -142,5 +142,8 @@ export const deleteCategory = async (id) => {
     )
   }
 
-  return prisma.category.delete({ where: { id } })
+  await prisma.category.delete({ where: { id } })
+
+  // Cleanup cloudinary AFTER the DB commit — if DB fails, image stays intact.
+  await deleteImage(category.imagePublicId)
 }
