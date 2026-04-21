@@ -86,6 +86,34 @@ const getPaymentKey = async (
   return data.token // payment_key for the iframe
 }
 
+const buildBillingData = (order, user) => {
+  if (user) {
+    return {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      phone: user.phone,
+      street: order.address?.street,
+      city: order.address?.city,
+      governorate: order.address?.governorate,
+    }
+  }
+
+  const nameParts = (order.guestName ?? '').trim().split(/\s+/)
+  const firstName = nameParts[0] || 'Guest'
+  const lastName = nameParts.slice(1).join(' ') || 'Customer'
+
+  return {
+    firstName,
+    lastName,
+    email: order.guestEmail,
+    phone: order.guestPhone,
+    street: order.shippingStreet,
+    city: order.shippingCity,
+    governorate: order.shippingGovernorate,
+  }
+}
+
 export const initiatePaymobPayment = async (order, user) => {
   // Paymob works in cents (EGP × 100), must be an integer
   const amountCents = Math.round(Number(order.total) * 100)
@@ -101,15 +129,7 @@ export const initiatePaymobPayment = async (order, user) => {
     authToken,
     paymobOrderId,
     amountCents,
-    {
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone,
-      street: order.address.street,
-      city: order.address.city,
-      governorate: order.address.governorate,
-    }
+    buildBillingData(order, user)
   )
 
   const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${process.env.PAYMOB_IFRAME_ID}?payment_token=${paymentKey}`
