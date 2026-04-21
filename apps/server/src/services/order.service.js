@@ -1,6 +1,7 @@
 import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
 import { getShippingCost } from '../config/shipping.js'
+import generateOrderNumber from '../utils/orderNumber.js'
 
 const PAYMOB_RESERVATION_MINUTES = 30
 
@@ -16,32 +17,58 @@ const orderInclude = {
 }
 
 // create order
-export const createOrder = async (
-  userId,
-  { addressId, paymentMethod = 'COD', items, clearCart, notes }
-) => {
-  // Validate items array
+export const createOrder = async (user, body) => {
+  const { paymentMethod = 'COD', items, notes, clearCart } = body
+
   if (!items || items.length === 0) {
     throw new AppError('Order must contain at least one item', 400)
   }
 
-  // validate user's address
-  const address = await prisma.address.findUnique({ where: { id: addressId } })
+  let savedAddress = null
+  let shippingSnapshot = null
+  let shippingGovernorate
 
-  if (!address || address.userId !== userId) {
-    throw new AppError('Address not found', 404)
+  if (user) {
+    if (!body.addressId) {
+      throw new AppError('addressId is required', 400)
+    }
+    savedAddress = await prisma.address.findUnique({
+      where: { id: body.addressId },
+    })
+    if (!savedAddress || savedAddress.userId !== user.id) {
+      throw new AppError('Address not found', 404)
+    }
+    shippingGovernorate = savedAddress.governorate
+  } else {
+    const { guest, shippingAddress } = body
+    if (!guest?.name || !guest?.phone) {
+      throw new AppError(
+        'Guest contact info (email, name, phone) is required',
+        400
+      )
+    }
+    if (
+      !shippingAddress?.street ||
+      !shippingAddress?.city ||
+      !shippingAddress?.governorate
+    ) {
+      throw new AppError(
+        'Shipping address (street, city, governorate) is required',
+        400
+      )
+    }
+    shippingSnapshot = shippingAddress
+    shippingGovernorate = shippingAddress.governorate
   }
 
-  // get shipping cost
-  const shippingCost = getShippingCost(address.governorate)
+  const shippingCost = getShippingCost(shippingGovernorate)
   if (shippingCost === null) {
     throw new AppError(
-      `Shipping is not available for governorate: ${address.governorate}`,
+      `Shipping is not available for governorate: ${shippingGovernorate}`,
       400
     )
   }
 
-  // fetch and validate all products
   const productIds = items.map((i) => i.productId)
   const products = await prisma.product.findMany({
     where: { id: { in: productIds }, isActive: true },
@@ -55,10 +82,8 @@ export const createOrder = async (
     )
   }
 
-  // Build a lookup map for O(1) access
   const productMap = Object.fromEntries(products.map((p) => [p.id, p]))
 
-  // Validate stock before entering transaction
   for (const item of items) {
     const product = productMap[item.productId]
     if (item.quantity < 1) {
@@ -72,7 +97,6 @@ export const createOrder = async (
     }
   }
 
-  // 6. Calculate totals
   const subtotal = items.reduce(
     (sum, item) =>
       sum + Number(productMap[item.productId].price) * item.quantity,
@@ -85,33 +109,43 @@ export const createOrder = async (
       ? new Date(Date.now() + PAYMOB_RESERVATION_MINUTES * 60 * 1000)
       : null
 
-  // Atomic transaction DB ACTION
-  const order = await prisma.$transaction(async (tx) => {
-    // 1- create the order
-    const newOrder = await tx.order.create({
-      data: {
-        userId,
-        addressId,
-        paymentMethod,
-        subtotal,
-        shippingCost,
-        total,
-        reservedUntil,
-        notes: notes?.trim() ?? null,
-      },
-    })
+  const orderData = {
+    orderNumber: generateOrderNumber(),
+    paymentMethod,
+    subtotal,
+    shippingCost,
+    total,
+    reservedUntil,
+    notes: notes?.trim() ?? null,
+  }
 
-    // 2- create order-items (snapshot prices)
+  if (user) {
+    orderData.userId = user.id
+    orderData.addressId = body.addressId
+  } else {
+    if (orderData.guestEmail) {
+      orderData.guestEmail = body.guest.email
+    }
+    orderData.guestName = body.guest.name
+    orderData.guestPhone = body.guest.phone
+    orderData.shippingStreet = shippingSnapshot.street
+    orderData.shippingCity = shippingSnapshot.city
+    orderData.shippingGovernorate = shippingSnapshot.governorate
+  }
+
+  // Atomic transaction
+  const order = await prisma.$transaction(async (tx) => {
+    const newOrder = await tx.order.create({ data: orderData })
+
     await tx.orderItem.createMany({
       data: items.map((item) => ({
         orderId: newOrder.id,
         productId: item.productId,
         quantity: item.quantity,
-        price: productMap[item.productId].price, // immutable price snapshot
+        price: productMap[item.productId].price,
       })),
     })
 
-    // 3- Race-condition-safe stock decrement
     for (const item of items) {
       const result = await tx.product.updateMany({
         where: { id: item.productId, stock: { gte: item.quantity } },
@@ -125,9 +159,9 @@ export const createOrder = async (
       }
     }
 
-    // Only clear cart if explicitly requested (cart checkout flow)
-    if (clearCart) {
-      const cart = await tx.cart.findUnique({ where: { userId } })
+    // Only logged-in users have a server cart to clear
+    if (user && clearCart) {
+      const cart = await tx.cart.findUnique({ where: { userId: user.id } })
       if (cart) {
         await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
       }
