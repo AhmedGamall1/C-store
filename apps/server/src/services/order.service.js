@@ -1,7 +1,6 @@
 import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
 import { getShippingCost } from '../config/shipping.js'
-import generateOrderNumber from '../utils/orderNumber.js'
 
 const PAYMOB_RESERVATION_MINUTES = 30
 
@@ -110,7 +109,6 @@ export const createOrder = async (user, body) => {
       : null
 
   const orderData = {
-    orderNumber: generateOrderNumber(),
     paymentMethod,
     subtotal,
     shippingCost,

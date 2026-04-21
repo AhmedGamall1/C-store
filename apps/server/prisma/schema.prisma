@@ -115,7 +115,7 @@ model CartItem {
 // orders
 model Order {
   id            String        @id @default(uuid())
-  orderNumber   String?       @unique
+  orderNumber   Int           @unique @default(autoincrement())
   userId        String?
   addressId     String?
   guestEmail    String?
