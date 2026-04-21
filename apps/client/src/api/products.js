@@ -17,3 +17,12 @@ export async function getProduct(slug) {
   const res = await api.get(`/products/${slug}`)
   return res.data.product
 }
+
+/**
+ * DELETE /api/products/:id (admin)
+ * Server does a soft delete — sets isActive = false. Returns 204.
+ */
+export async function deleteProduct(id) {
+  await api.delete(`/products/${id}`)
+  return id
+}
