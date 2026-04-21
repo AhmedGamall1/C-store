@@ -43,3 +43,26 @@ export const restrictTo = (...roles) => {
     next()
   }
 }
+
+export const optionalAuth = async (req, res, next) => {
+  const token = req.cookies?.token
+
+  if (!token) {
+    return next()
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+    })
+
+    if (user && user.isActive) {
+      req.user = user
+    }
+  } catch {
+    // invalid/expired token — treat as guest, do not fail the request
+  }
+
+  next()
+}
