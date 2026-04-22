@@ -202,12 +202,15 @@ export const handleWebhookTransaction = async (body) => {
       },
     })
   } else {
+    // handleWebhookTransaction — failure branch only
     await prisma.$transaction(async (tx) => {
       for (const item of order.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        })
+        if (item.productSizeId) {
+          await tx.productSize.updateMany({
+            where: { id: item.productSizeId },
+            data: { stock: { increment: item.quantity } },
+          })
+        }
       }
       await tx.order.update({
         where: { id: order.id },

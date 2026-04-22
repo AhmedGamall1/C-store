@@ -5,17 +5,49 @@ import { getShippingCost } from '../config/shipping.js'
 const PAYMOB_RESERVATION_MINUTES = 30
 
 const orderInclude = {
-  items: {
-    include: {
-      product: {
-        select: { id: true, name: true, slug: true, imageUrl: true },
-      },
-    },
-  },
+  items: true, // snapshots are self-contained; no need to join variant
   address: true,
 }
 
-// create order
+// Reach through size → color → product so we can validate + resolve price
+const sizeLookupInclude = {
+  color: {
+    include: {
+      product: {
+        select: { id: true, name: true, price: true, isActive: true },
+      },
+    },
+  },
+}
+
+// Resolve the effective unit price for a size (size override wins, else product base)
+const unitPriceOf = (size) => size.price ?? size.color.product.price
+
+// Ensure size + its color + its product are all active and in stock for `qty`
+const assertSizeAvailable = (size, qty) => {
+  if (
+    !size ||
+    !size.isActive ||
+    !size.color?.isActive ||
+    !size.color?.product?.isActive
+  ) {
+    throw new AppError(
+      'One or more selected variants are no longer available',
+      400
+    )
+  }
+  if (qty < 1) {
+    throw new AppError(`Invalid quantity for "${size.color.product.name}"`, 400)
+  }
+  if (qty > size.stock) {
+    throw new AppError(
+      `Insufficient stock for "${size.color.product.name}" — ${size.color.name} / ${size.size}. Available: ${size.stock}`,
+      400
+    )
+  }
+}
+
+// create order — supports both logged-in users and guests
 export const createOrder = async (user, body) => {
   const { paymentMethod = 'COD', items, notes, clearCart } = body
 
@@ -23,15 +55,13 @@ export const createOrder = async (user, body) => {
     throw new AppError('Order must contain at least one item', 400)
   }
 
-  let savedAddress = null
+  // --- address / governorate resolution (unchanged) ---
   let shippingSnapshot = null
   let shippingGovernorate
 
   if (user) {
-    if (!body.addressId) {
-      throw new AppError('addressId is required', 400)
-    }
-    savedAddress = await prisma.address.findUnique({
+    if (!body.addressId) throw new AppError('addressId is required', 400)
+    const savedAddress = await prisma.address.findUnique({
       where: { id: body.addressId },
     })
     if (!savedAddress || savedAddress.userId !== user.id) {
@@ -40,7 +70,7 @@ export const createOrder = async (user, body) => {
     shippingGovernorate = savedAddress.governorate
   } else {
     const { guest, shippingAddress } = body
-    if (!guest?.name || !guest?.phone) {
+    if (!guest?.email || !guest?.name || !guest?.phone) {
       throw new AppError(
         'Guest contact info (email, name, phone) is required',
         400
@@ -68,39 +98,28 @@ export const createOrder = async (user, body) => {
     )
   }
 
-  const productIds = items.map((i) => i.productId)
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, isActive: true },
-    select: { id: true, name: true, price: true, stock: true },
+  // --- variant lookup + validation ---
+  const sizeIds = items.map((i) => i.productSizeId)
+  const sizes = await prisma.productSize.findMany({
+    where: { id: { in: sizeIds } },
+    include: sizeLookupInclude,
   })
 
-  if (products.length !== productIds.length) {
-    throw new AppError(
-      'One or more products were not found or are unavailable',
-      400
-    )
+  if (sizes.length !== sizeIds.length) {
+    throw new AppError('One or more selected variants were not found', 400)
   }
 
-  const productMap = Object.fromEntries(products.map((p) => [p.id, p]))
+  const sizeMap = Object.fromEntries(sizes.map((s) => [s.id, s]))
 
   for (const item of items) {
-    const product = productMap[item.productId]
-    if (item.quantity < 1) {
-      throw new AppError(`Invalid quantity for "${product.name}"`, 400)
-    }
-    if (item.quantity > product.stock) {
-      throw new AppError(
-        `Insufficient stock for "${product.name}". Available: ${product.stock}`,
-        400
-      )
-    }
+    assertSizeAvailable(sizeMap[item.productSizeId], item.quantity)
   }
 
-  const subtotal = items.reduce(
-    (sum, item) =>
-      sum + Number(productMap[item.productId].price) * item.quantity,
-    0
-  )
+  // --- totals ---
+  const subtotal = items.reduce((sum, item) => {
+    const size = sizeMap[item.productSizeId]
+    return sum + Number(unitPriceOf(size)) * item.quantity
+  }, 0)
   const total = subtotal + shippingCost
 
   const reservedUntil =
@@ -121,9 +140,7 @@ export const createOrder = async (user, body) => {
     orderData.userId = user.id
     orderData.addressId = body.addressId
   } else {
-    if (orderData.guestEmail) {
-      orderData.guestEmail = body.guest.email
-    }
+    orderData.guestEmail = body.guest.email
     orderData.guestName = body.guest.name
     orderData.guestPhone = body.guest.phone
     orderData.shippingStreet = shippingSnapshot.street
@@ -131,37 +148,48 @@ export const createOrder = async (user, body) => {
     orderData.shippingGovernorate = shippingSnapshot.governorate
   }
 
-  // Atomic transaction
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({ data: orderData })
 
+    // Snapshot everything onto OrderItem so receipts survive variant edits
     await tx.orderItem.createMany({
-      data: items.map((item) => ({
-        orderId: newOrder.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        price: productMap[item.productId].price,
-      })),
+      data: items.map((item) => {
+        const size = sizeMap[item.productSizeId]
+        return {
+          orderId: newOrder.id,
+          productSizeId: size.id,
+          quantity: item.quantity,
+          price: unitPriceOf(size),
+          size: size.size,
+          colorName: size.color.name,
+          colorHex: size.color.hex,
+          productName: size.color.product.name,
+        }
+      }),
     })
 
+    // Race-safe decrement on the SIZE row
     for (const item of items) {
-      const result = await tx.product.updateMany({
-        where: { id: item.productId, stock: { gte: item.quantity } },
+      const size = sizeMap[item.productSizeId]
+      const result = await tx.productSize.updateMany({
+        where: { id: size.id, stock: { gte: item.quantity } },
         data: { stock: { decrement: item.quantity } },
       })
       if (result.count === 0) {
         throw new AppError(
-          `"${productMap[item.productId].name}" just went out of stock`,
+          `"${size.color.product.name}" (${size.color.name} / ${size.size}) just went out of stock`,
           409
         )
       }
     }
 
-    // Only logged-in users have a server cart to clear
+    // Clear the cart rows tied to the purchased sizes
     if (user && clearCart) {
       const cart = await tx.cart.findUnique({ where: { userId: user.id } })
       if (cart) {
-        await tx.cartItem.deleteMany({ where: { cartId: cart.id } })
+        await tx.cartItem.deleteMany({
+          where: { cartId: cart.id, productSizeId: { in: sizeIds } },
+        })
       }
     }
 
@@ -189,15 +217,13 @@ export const getOrderById = async (userId, orderId) => {
     where: { id: orderId },
     include: orderInclude,
   })
-
   if (!order || order.userId !== userId) {
     throw new AppError('Order not found', 404)
   }
-
   return order
 }
 
-// cancel order
+// cancel order — restore stock on the SIZE rows
 export const cancelOrder = async (userId, orderId) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -207,7 +233,6 @@ export const cancelOrder = async (userId, orderId) => {
   if (!order || order.userId !== userId) {
     throw new AppError('Order not found', 404)
   }
-
   if (order.status !== 'PENDING') {
     throw new AppError(
       `Cannot cancel an order with status: ${order.status}`,
@@ -215,15 +240,16 @@ export const cancelOrder = async (userId, orderId) => {
     )
   }
 
-  // Restore stock + update status atomically
   return prisma.$transaction(async (tx) => {
     for (const item of order.items) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { stock: { increment: item.quantity } },
-      })
+      // Size may have been hard-deleted; only restore if it still exists
+      if (item.productSizeId) {
+        await tx.productSize.updateMany({
+          where: { id: item.productSizeId },
+          data: { stock: { increment: item.quantity } },
+        })
+      }
     }
-
     return tx.order.update({
       where: { id: orderId },
       data: { status: 'CANCELLED', reservedUntil: null },
@@ -250,10 +276,8 @@ const VALID_TRANSITIONS = {
   CANCELLED: [],
 }
 
-// Admin: get all orders with filtering + pagination
 export const getAllOrders = async (query) => {
   const { page = 1, limit = 20, status, paymentStatus, paymentMethod } = query
-
   const skip = (Number(page) - 1) * Number(limit)
   const take = Number(limit)
 
@@ -271,12 +295,7 @@ export const getAllOrders = async (query) => {
       include: {
         ...orderInclude,
         user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
+          select: { id: true, firstName: true, lastName: true, email: true },
         },
       },
     }),
@@ -296,19 +315,14 @@ export const getAllOrders = async (query) => {
   }
 }
 
-// Admin: update order status with enforced transitions
 export const updateOrderStatus = async (orderId, newStatus) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: { items: true },
   })
-
-  if (!order) {
-    throw new AppError('Order not found', 404)
-  }
+  if (!order) throw new AppError('Order not found', 404)
 
   const allowed = VALID_TRANSITIONS[order.status]
-
   if (!allowed || !allowed.includes(newStatus)) {
     throw new AppError(
       `Cannot transition from ${order.status} to ${newStatus}`,
@@ -316,16 +330,17 @@ export const updateOrderStatus = async (orderId, newStatus) => {
     )
   }
 
-  // Cancellation → restore stock atomically
+  // Cancellation → restore stock on the SIZE rows
   if (newStatus === 'CANCELLED') {
     return prisma.$transaction(async (tx) => {
       for (const item of order.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        })
+        if (item.productSizeId) {
+          await tx.productSize.updateMany({
+            where: { id: item.productSizeId },
+            data: { stock: { increment: item.quantity } },
+          })
+        }
       }
-
       return tx.order.update({
         where: { id: orderId },
         data: { status: 'CANCELLED', reservedUntil: null },
@@ -334,15 +349,10 @@ export const updateOrderStatus = async (orderId, newStatus) => {
     })
   }
 
-  // Normal transition
   const updateData = { status: newStatus }
-
-  // COD delivered = payment collected
   if (newStatus === 'DELIVERED' && order.paymentMethod === 'COD') {
     updateData.paymentStatus = 'PAID'
   }
-
-  // Confirming clears the reservation — it served its purpose
   if (newStatus === 'CONFIRMED') {
     updateData.reservedUntil = null
   }
