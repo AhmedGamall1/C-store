@@ -15,8 +15,8 @@ router.use(protect)
 
 router.get('/', getCart)
 router.post('/items', addItem)
-router.patch('/items/:productId', updateItem)
-router.delete('/items/:productId', removeItem)
+router.patch('/items/:productSizeId', updateItem)
+router.delete('/items/:productSizeId', removeItem)
 router.delete('/', clearCart)
 
 export default router

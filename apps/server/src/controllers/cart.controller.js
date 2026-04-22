@@ -6,25 +6,28 @@ export const getCart = async (req, res) => {
   res.json({ status: 'success', data: { cart } })
 }
 
-// POST /api/cart/items  — body: { productId, quantity }
+// POST /api/cart/items — body: { productSizeId, quantity }
 export const addItem = async (req, res) => {
   const cart = await cartService.addItem(req.user.id, req.body)
   res.status(201).json({ status: 'success', data: { cart } })
 }
 
-// PATCH /api/cart/items/:productId  — body: { quantity }
+// PATCH /api/cart/items/:productSizeId — body: { quantity }
 export const updateItem = async (req, res) => {
   const cart = await cartService.updateItem(
     req.user.id,
-    req.params.productId,
+    req.params.productSizeId,
     req.body.quantity
   )
   res.json({ status: 'success', data: { cart } })
 }
 
-// DELETE /api/cart/items/:productId
+// DELETE /api/cart/items/:productSizeId
 export const removeItem = async (req, res) => {
-  const cart = await cartService.removeItem(req.user.id, req.params.productId)
+  const cart = await cartService.removeItem(
+    req.user.id,
+    req.params.productSizeId
+  )
   res.json({ status: 'success', data: { cart } })
 }
 
