@@ -5,10 +5,22 @@ import slugify from '../utils/slugify.js'
 
 const CATEGORIES_FOLDER = 'c-store/categories'
 
-// getAllCategories
+// getAllCategories (public — active only)
 export const getAllCategories = async () => {
   return prisma.category.findMany({
     where: { isActive: true },
+    include: {
+      _count: {
+        select: { products: true },
+      },
+    },
+    orderBy: { name: 'asc' },
+  })
+}
+
+// getAllCategoriesAdmin (admin — includes inactive)
+export const getAllCategoriesAdmin = async () => {
+  return prisma.category.findMany({
     include: {
       _count: {
         select: { products: true },

@@ -10,6 +10,16 @@ export const getAllCategories = async (req, res) => {
   })
 }
 
+// GET /api/categories/admin
+export const getAllCategoriesAdmin = async (req, res) => {
+  const categories = await categoryService.getAllCategoriesAdmin()
+  res.json({
+    status: 'success',
+    results: categories.length,
+    data: { categories },
+  })
+}
+
 // GET /api/categories/:slug
 export const getCategoryBySlug = async (req, res) => {
   const category = await categoryService.getCategoryBySlug(req.params.slug)

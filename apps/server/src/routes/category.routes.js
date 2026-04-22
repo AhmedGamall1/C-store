@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   getAllCategories,
+  getAllCategoriesAdmin,
   getCategoryBySlug,
   createCategory,
   updateCategory,
@@ -13,6 +14,10 @@ const router = Router()
 
 // public routes
 router.get('/', getAllCategories)
+
+// admin routes (before /:slug so "admin" isn't treated as a slug)
+router.get('/admin', protect, restrictTo('ADMIN'), getAllCategoriesAdmin)
+
 router.get('/:slug', getCategoryBySlug)
 
 // admin only routes
