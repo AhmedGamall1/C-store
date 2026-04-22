@@ -7,12 +7,13 @@ import {
   deleteProduct,
   forceDeleteProduct,
 } from '../controllers/product.controller.js'
+import * as variantController from '../controllers/variant.controller.js'
 import { protect, restrictTo } from '../middlewares/auth.middleware.js'
 import upload, { handleMulterError } from '../middlewares/upload.middlware.js'
 
 const router = Router()
 
-// product images middlware
+// product / color image upload shape
 const productUpload = upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'images', maxCount: 5 },
@@ -22,7 +23,7 @@ const productUpload = upload.fields([
 router.get('/', getAllProducts)
 router.get('/:slug', getProductBySlug)
 
-// admin only routes
+// ---------- admin: product CRUD ----------
 router.post(
   '/',
   protect,
@@ -39,8 +40,51 @@ router.patch(
   handleMulterError,
   updateProduct
 )
-
 router.delete('/:id', protect, restrictTo('ADMIN'), deleteProduct)
 router.delete('/:id/force', protect, restrictTo('ADMIN'), forceDeleteProduct)
+
+// ---------- admin: colors ----------
+router.post(
+  '/:id/colors',
+  protect,
+  restrictTo('ADMIN'),
+  productUpload,
+  handleMulterError,
+  variantController.addColor
+)
+router.patch(
+  '/:id/colors/:colorId',
+  protect,
+  restrictTo('ADMIN'),
+  productUpload,
+  handleMulterError,
+  variantController.updateColor
+)
+router.delete(
+  '/:id/colors/:colorId',
+  protect,
+  restrictTo('ADMIN'),
+  variantController.deleteColor
+)
+
+// ---------- admin: sizes (JSON only, no files) ----------
+router.post(
+  '/:id/colors/:colorId/sizes',
+  protect,
+  restrictTo('ADMIN'),
+  variantController.addSize
+)
+router.patch(
+  '/:id/colors/:colorId/sizes/:sizeId',
+  protect,
+  restrictTo('ADMIN'),
+  variantController.updateSize
+)
+router.delete(
+  '/:id/colors/:colorId/sizes/:sizeId',
+  protect,
+  restrictTo('ADMIN'),
+  variantController.deleteSize
+)
 
 export default router

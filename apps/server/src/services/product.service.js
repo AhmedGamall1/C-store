@@ -5,6 +5,44 @@ import slugify from '../utils/slugify.js'
 
 const PRODUCTS_FOLDER = 'c-store/products'
 
+// What a product card shows on listing pages
+const productCardInclude = {
+  category: { select: { id: true, name: true, slug: true } },
+  colors: {
+    where: { isActive: true },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      name: true,
+      hex: true,
+      imageUrl: true,
+    },
+  },
+}
+
+// Full detail shape for a single product page
+const productDetailInclude = {
+  category: { select: { id: true, name: true, slug: true } },
+  colors: {
+    where: { isActive: true },
+    orderBy: { createdAt: 'asc' },
+    include: {
+      sizes: {
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  },
+  reviews: {
+    include: {
+      user: { select: { id: true, firstName: true, lastName: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  },
+  _count: { select: { reviews: true } },
+}
+
 // getAllProducts with pagination, filtering, sorting, and search
 export const getAllProducts = async (query) => {
   const {
@@ -59,23 +97,10 @@ export const getAllProducts = async (query) => {
       skip,
       take,
       orderBy: { [sortField]: sortOrder },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        price: true,
-        comparePrice: true,
-        imageUrl: true,
-        stock: true,
-        createdAt: true,
-        category: {
-          select: { id: true, name: true, slug: true },
-        },
-      },
+      include: productCardInclude,
     }),
     prisma.product.count({ where }),
   ])
-
   return {
     products,
     pagination: {
@@ -91,28 +116,16 @@ export const getAllProducts = async (query) => {
 
 // getProductBySlug
 export const getProductBySlug = async (slug) => {
-  const product = await prisma.product.findUnique({
-    where: { slug },
-    include: {
-      category: {
-        select: { id: true, name: true, slug: true },
-      },
-      reviews: {
-        include: {
-          user: {
-            select: { id: true, firstName: true, lastName: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      },
-      _count: {
-        select: { reviews: true },
-      },
+  const product = await prisma.product.findFirst({
+    where: {
+      slug,
+      isActive: true,
+      category: { isActive: true },
     },
+    include: productDetailInclude,
   })
 
-  if (!product || !product.isActive) {
+  if (!product) {
     throw new AppError('Product not found', 404)
   }
 
@@ -121,22 +134,18 @@ export const getProductBySlug = async (slug) => {
 
 // Admin functions - createProduct
 export const createProduct = async (data, files = {}) => {
-  const { name, description, price, comparePrice, stock, sku, categoryId } =
-    data
-  const { imageBuffer, galleryBuffers = [] } = files
+  const { name, description, price, comparePrice, sku, categoryId } = data
+  const { imageBuffer } = files
 
   if (!name || !price || !categoryId) {
     throw new AppError('Name, price and category are required', 400)
   }
-
   if (!imageBuffer) {
     throw new AppError('Product image is required', 400)
   }
-
   if (Number(price) <= 0) {
     throw new AppError('Price must be greater than zero', 400)
   }
-
   if (comparePrice && Number(comparePrice) <= Number(price)) {
     throw new AppError('Compare price must be greater than selling price', 400)
   }
@@ -144,31 +153,18 @@ export const createProduct = async (data, files = {}) => {
   const category = await prisma.category.findUnique({
     where: { id: categoryId },
   })
-
   if (!category) {
     throw new AppError('Category not found', 404)
   }
 
   const slug = slugify(name)
   const existing = await prisma.product.findUnique({ where: { slug } })
-
   if (existing) {
     throw new AppError('Product with this name already exists', 409)
   }
 
-  const result = await uploadImage(imageBuffer, PRODUCTS_FOLDER)
-  const imageUrl = result.secure_url
-  const imagePublicId = result.public_id
+  const cover = await uploadImage(imageBuffer, PRODUCTS_FOLDER)
 
-  let images = []
-  let imagePublicIds = []
-  if (galleryBuffers.length) {
-    const results = await Promise.all(
-      galleryBuffers.map((buf) => uploadImage(buf, PRODUCTS_FOLDER))
-    )
-    images = results.map((r) => r.secure_url)
-    imagePublicIds = results.map((r) => r.public_id)
-  }
   return prisma.product.create({
     data: {
       name: name.trim(),
@@ -176,42 +172,34 @@ export const createProduct = async (data, files = {}) => {
       description: description?.trim(),
       price: Number(price),
       comparePrice: comparePrice ? Number(comparePrice) : null,
-      stock: stock ? Number(stock) : 0,
       sku: sku?.trim() ?? null,
-      imageUrl,
-      imagePublicId,
-      images,
-      imagePublicIds,
+      imageUrl: cover.secure_url,
+      imagePublicId: cover.public_id,
       categoryId,
     },
-    include: {
-      category: {
-        select: { id: true, name: true, slug: true },
-      },
-    },
+    include: { category: { select: { id: true, name: true, slug: true } } },
   })
 }
 
 // Admin functions - updateProduct
 export const updateProduct = async (id, data, files = {}) => {
-  const { imageBuffer, galleryBuffers = [] } = files
+  const { imageBuffer } = files
   const product = await prisma.product.findUnique({ where: { id } })
-
   if (!product) {
     throw new AppError('Product not found', 404)
   }
 
-  const { name, price, comparePrice, stock, ...restData } = data
+  const { name, price, comparePrice, ...restData } = data
 
   const updateData = {
     ...restData,
     ...(name && { name: name.trim(), slug: slugify(name) }),
     ...(price !== undefined && { price: Number(price) }),
-    ...(stock !== undefined && { stock: Number(stock) }),
     ...(comparePrice !== undefined && {
       comparePrice: comparePrice ? Number(comparePrice) : null,
     }),
   }
+
   if (imageBuffer) {
     await deleteImage(product.imagePublicId)
     const result = await uploadImage(imageBuffer, PRODUCTS_FOLDER)
@@ -219,23 +207,10 @@ export const updateProduct = async (id, data, files = {}) => {
     updateData.imagePublicId = result.public_id
   }
 
-  if (galleryBuffers.length) {
-    await Promise.all(product.imagePublicIds.map(deleteImage))
-    const results = await Promise.all(
-      galleryBuffers.map((buf) => uploadImage(buf, PRODUCTS_FOLDER))
-    )
-    updateData.images = results.map((r) => r.secure_url)
-    updateData.imagePublicIds = results.map((r) => r.public_id)
-  }
-
   return prisma.product.update({
     where: { id },
     data: updateData,
-    include: {
-      category: {
-        select: { id: true, name: true, slug: true },
-      },
-    },
+    include: { category: { select: { id: true, name: true, slug: true } } },
   })
 }
 
@@ -256,31 +231,40 @@ export const deleteProduct = async (id) => {
 
 // Admin functions - forceDeleteProduct (hard delete)
 export const forceDeleteProduct = async (id) => {
-  const product = await prisma.product.findUnique({ where: { id } })
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      colors: { include: { sizes: { select: { id: true } } } },
+    },
+  })
 
   if (!product) {
     throw new AppError('Product not found', 404)
   }
 
-  const orderItemCount = await prisma.orderItem.count({
-    where: { productId: id },
-  })
+  const sizeIds = product.colors.flatMap((c) => c.sizes.map((s) => s.id))
 
-  if (orderItemCount > 0) {
-    throw new AppError(
-      `Cannot hard-delete this product — it appears in ${orderItemCount} existing order(s). Use soft delete instead.`,
-      409
-    )
+  if (sizeIds.length > 0) {
+    const orderItemCount = await prisma.orderItem.count({
+      where: { productSizeId: { in: sizeIds } },
+    })
+    if (orderItemCount > 0) {
+      throw new AppError(
+        `Cannot hard-delete this product — it has ${orderItemCount} item(s) in existing orders. Use soft delete instead.`,
+        409
+      )
+    }
   }
 
-  // Clean dependent rows + delete product atomically.
   await prisma.$transaction([
-    prisma.cartItem.deleteMany({ where: { productId: id } }),
+    prisma.cartItem.deleteMany({ where: { productSizeId: { in: sizeIds } } }),
     prisma.review.deleteMany({ where: { productId: id } }),
-    prisma.product.delete({ where: { id } }),
+    prisma.product.delete({ where: { id } }), // cascades to colors → sizes
   ])
 
-  // Cleanup cloudinary AFTER the DB commit
   await deleteImage(product.imagePublicId)
-  await Promise.all((product.imagePublicIds ?? []).map(deleteImage))
+  for (const color of product.colors) {
+    await deleteImage(color.imagePublicId)
+    await Promise.all((color.imagePublicIds ?? []).map(deleteImage))
+  }
 }
