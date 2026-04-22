@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable no-undef */
 import { useEffect, useRef, useState } from 'react'
-import { ImagePlus, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ImagePlus, Loader2, Pencil, Plus, Trash2, Power } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,15 +14,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
 import {
-  useCategories,
+  useAdminCategories,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
+  useToggleCategoryActive,
 } from '@/hooks/useCategories'
 
 export default function AdminCategoriesPage() {
-  const { data: categories = [], isLoading } = useCategories()
+  const { data: categories = [], isLoading } = useAdminCategories()
+  const toggleMutation = useToggleCategoryActive()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -69,7 +72,7 @@ export default function AdminCategoriesPage() {
         {categories.map((c) => (
           <li
             key={c.id}
-            className="group overflow-hidden rounded-lg border bg-background"
+            className={`group overflow-hidden rounded-lg border bg-background${!c.isActive ? ' opacity-60' : ''}`}
           >
             <div className="relative aspect-4/3 overflow-hidden bg-secondary">
               <img
@@ -79,7 +82,12 @@ export default function AdminCategoriesPage() {
               />
               <div className="absolute inset-0 bg-linear-to-t from-foreground/60 via-foreground/10 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-4 text-background">
-                <p className="font-display text-xl font-bold">{c.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-display text-xl font-bold">{c.name}</p>
+                  <Badge variant={c.isActive ? 'success' : 'destructive'}>
+                    {c.isActive ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
                 <p className="text-xs opacity-80">
                   {c._count?.products ?? 0} products
                 </p>
@@ -96,6 +104,20 @@ export default function AdminCategoriesPage() {
                   /{c.slug}
                 </p>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      toggleMutation.mutate({
+                        id: c.id,
+                        isActive: !c.isActive,
+                      })
+                    }
+                    disabled={toggleMutation.isPending}
+                  >
+                    <Power className="h-4 w-4" />
+                    {c.isActive ? 'Deactivate' : 'Activate'}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -323,10 +345,10 @@ function DeleteCategoryDialog({ category, onClose }) {
         <DialogHeader>
           <DialogTitle>Delete category?</DialogTitle>
           <DialogDescription>
-            You\u2019re about to delete{' '}
+            You are about to delete{' '}
             <span className="font-semibold">{category?.name}</span>. This action
-            can\u2019t be undone. Categories with products can\u2019t be
-            deleted.
+            cannot be done it there is products in this category. Products in
+            this category must be deleted first.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

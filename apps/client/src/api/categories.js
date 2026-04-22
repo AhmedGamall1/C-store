@@ -6,6 +6,18 @@ export async function getCategories() {
   return res.data.categories
 }
 
+// GET /api/categories/admin (includes inactive)
+export async function getAdminCategories() {
+  const res = await api.get('/categories/admin')
+  return res.data.categories
+}
+
+// PATCH /api/categories/:id — toggle isActive
+export async function toggleCategoryActive(id, isActive) {
+  const res = await api.patch(`/categories/${id}`, { isActive })
+  return res.data.category
+}
+
 // POST /api/categories (admin)
 export async function createCategory({ name, description, imageFile }) {
   // eslint-disable-next-line no-undef

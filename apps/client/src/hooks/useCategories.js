@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createCategory,
   deleteCategory,
+  getAdminCategories,
   getCategories,
+  toggleCategoryActive,
   updateCategory,
 } from '@/api/categories'
 import { toast } from 'sonner'
@@ -12,6 +14,13 @@ export function useCategories() {
     queryKey: ['categories'],
     queryFn: getCategories,
     staleTime: 10 * 60_000, // categories barely change — cache 10 min
+  })
+}
+
+export function useAdminCategories() {
+  return useQuery({
+    queryKey: ['categories', 'admin'],
+    queryFn: getAdminCategories,
   })
 }
 
@@ -40,4 +49,11 @@ export function useUpdateCategory() {
 
 export function useDeleteCategory() {
   return useCategoryMutation(deleteCategory, { successMsg: 'Category deleted' })
+}
+
+export function useToggleCategoryActive() {
+  return useCategoryMutation(
+    ({ id, isActive }) => toggleCategoryActive(id, isActive),
+    { successMsg: 'Category status updated' }
+  )
 }
