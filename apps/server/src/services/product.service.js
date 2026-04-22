@@ -27,8 +27,10 @@ export const getAllProducts = async (query) => {
   const take = Number(limit)
 
   // build filter dynamically
-  const where = { isActive: true }
-
+  const where = {
+    isActive: true,
+    category: { isActive: true },
+  }
   if (category) {
     where.category = { slug: category }
   }
@@ -250,4 +252,35 @@ export const deleteProduct = async (id) => {
     where: { id },
     data: { isActive: false },
   })
+}
+
+// Admin functions - forceDeleteProduct (hard delete)
+export const forceDeleteProduct = async (id) => {
+  const product = await prisma.product.findUnique({ where: { id } })
+
+  if (!product) {
+    throw new AppError('Product not found', 404)
+  }
+
+  const orderItemCount = await prisma.orderItem.count({
+    where: { productId: id },
+  })
+
+  if (orderItemCount > 0) {
+    throw new AppError(
+      `Cannot hard-delete this product — it appears in ${orderItemCount} existing order(s). Use soft delete instead.`,
+      409
+    )
+  }
+
+  // Clean dependent rows + delete product atomically.
+  await prisma.$transaction([
+    prisma.cartItem.deleteMany({ where: { productId: id } }),
+    prisma.review.deleteMany({ where: { productId: id } }),
+    prisma.product.delete({ where: { id } }),
+  ])
+
+  // Cleanup cloudinary AFTER the DB commit
+  await deleteImage(product.imagePublicId)
+  await Promise.all((product.imagePublicIds ?? []).map(deleteImage))
 }

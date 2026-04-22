@@ -5,6 +5,7 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  forceDeleteProduct,
 } from '../controllers/product.controller.js'
 import { protect, restrictTo } from '../middlewares/auth.middleware.js'
 import upload, { handleMulterError } from '../middlewares/upload.middlware.js'
@@ -40,5 +41,6 @@ router.patch(
 )
 
 router.delete('/:id', protect, restrictTo('ADMIN'), deleteProduct)
+router.delete('/:id/force', protect, restrictTo('ADMIN'), forceDeleteProduct)
 
 export default router

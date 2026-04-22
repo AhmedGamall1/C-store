@@ -43,3 +43,9 @@ export const deleteProduct = async (req, res) => {
   await productService.deleteProduct(req.params.id)
   res.status(204).send()
 }
+
+// DELETE /api/products/:id/force
+export const forceDeleteProduct = async (req, res) => {
+  await productService.forceDeleteProduct(req.params.id)
+  res.status(204).send()
+}
