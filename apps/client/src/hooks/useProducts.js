@@ -1,6 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { getProducts, getProduct, deleteProduct } from '@/api/products'
+import {
+  getProducts,
+  getAdminProducts,
+  getAdminProduct,
+  getProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  forceDeleteProduct,
+  toggleProductActive,
+} from '@/api/products'
 
 /**
  * Fetch paginated product list with filters.
@@ -8,11 +18,31 @@ import { getProducts, getProduct, deleteProduct } from '@/api/products'
  */
 export function useProducts(filters = {}) {
   return useQuery({
-    // The key includes every filter — TanStack auto-refetches when any filter changes
     queryKey: ['products', filters],
     queryFn: () => getProducts(filters),
-    // Keep showing the previous page while the next page loads (no flicker)
     placeholderData: (prev) => prev,
+  })
+}
+
+/**
+ * Fetch paginated product list for admin (includes inactive).
+ */
+export function useAdminProducts(filters = {}) {
+  return useQuery({
+    queryKey: ['products', 'admin', filters],
+    queryFn: () => getAdminProducts(filters),
+    placeholderData: (prev) => prev,
+  })
+}
+
+/**
+ * Fetch a single product by ID for admin editing.
+ */
+export function useAdminProduct(id) {
+  return useQuery({
+    queryKey: ['product', 'admin', id],
+    queryFn: () => getAdminProduct(id),
+    enabled: Boolean(id),
   })
 }
 
@@ -23,22 +53,54 @@ export function useProduct(slug) {
   return useQuery({
     queryKey: ['product', slug],
     queryFn: () => getProduct(slug),
-    enabled: Boolean(slug), // don't fire if slug is undefined
+    enabled: Boolean(slug),
   })
 }
 
-/**
- * Soft-delete a product (admin). Invalidates every ['products', ...] list.
- */
-export function useDeleteProduct() {
+function useProductMutation(mutationFn, { successMsg } = {}) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: deleteProduct,
+    mutationFn,
     onSuccess: () => {
-      // Invalidate all ['products', <any filters>] entries — partial key match.
       qc.invalidateQueries({ queryKey: ['products'] })
-      toast.success('Product deleted')
+      qc.invalidateQueries({ queryKey: ['product'] })
+      if (successMsg) toast.success(successMsg)
     },
     onError: (err) => toast.error(err.message),
   })
+}
+
+export function useCreateProduct() {
+  return useProductMutation(createProduct, { successMsg: 'Product created' })
+}
+
+export function useUpdateProduct() {
+  return useProductMutation(
+    ({ id, ...data }) => updateProduct(id, data),
+    { successMsg: 'Product updated' }
+  )
+}
+
+/**
+ * Soft-delete a product (admin).
+ */
+export function useDeleteProduct() {
+  return useProductMutation(deleteProduct, { successMsg: 'Product deleted' })
+}
+
+/**
+ * Force (hard) delete a product (admin).
+ */
+export function useForceDeleteProduct() {
+  return useProductMutation(forceDeleteProduct, { successMsg: 'Product permanently deleted' })
+}
+
+/**
+ * Toggle product active status.
+ */
+export function useToggleProductActive() {
+  return useProductMutation(
+    ({ id, isActive }) => toggleProductActive(id, isActive),
+    { successMsg: 'Product status updated' }
+  )
 }

@@ -1,7 +1,15 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { Link } from 'react-router'
 import { useEffect, useState } from 'react'
-import { Plus, Search, Pencil, Trash2, Loader2 } from 'lucide-react'
+import {
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
+  Loader2,
+  Power,
+  AlertTriangle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -29,14 +37,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Pagination } from '@/components/product/Pagination'
-import { useProducts, useDeleteProduct } from '@/hooks/useProducts'
-import { useCategories } from '@/hooks/useCategories'
+import {
+  useAdminProducts,
+  useDeleteProduct,
+  useForceDeleteProduct,
+  useToggleProductActive,
+} from '@/hooks/useProducts'
+import { useAdminCategories } from '@/hooks/useCategories'
 import { formatEGP } from '@/lib/utils'
 
 const PAGE_SIZE = 20
 
 export default function AdminProductsPage() {
-  const { data: categories = [] } = useCategories()
+  const { data: categories = [] } = useAdminCategories()
 
   // Filter state — local, ephemeral. No URL sync for admin.
   const [searchInput, setSearchInput] = useState('')
@@ -44,6 +57,7 @@ export default function AdminProductsPage() {
   const [cat, setCat] = useState('all')
   const [page, setPage] = useState(1)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmForceDelete, setConfirmForceDelete] = useState(null)
 
   // Debounce search input → server query (300ms)
   useEffect(() => {
@@ -66,11 +80,13 @@ export default function AdminProductsPage() {
     ...(cat !== 'all' && { category: cat }),
   }
 
-  const { data, isLoading, isFetching } = useProducts(filters)
+  const { data, isLoading, isFetching } = useAdminProducts(filters)
   const products = data?.products ?? []
   const pagination = data?.pagination
 
   const deleteMutation = useDeleteProduct()
+  const forceDeleteMutation = useForceDeleteProduct()
+  const toggleMutation = useToggleProductActive()
 
   // If we deleted the last item on a non-first page, drop back one page
   useEffect(() => {
@@ -85,6 +101,15 @@ export default function AdminProductsPage() {
       setConfirmDelete(null)
     } catch {
       // toast handled in hook; leave dialog open so user sees the reason
+    }
+  }
+
+  const handleConfirmForceDelete = async () => {
+    try {
+      await forceDeleteMutation.mutateAsync(confirmForceDelete.id)
+      setConfirmForceDelete(null)
+    } catch {
+      // toast handled in hook
     }
   }
 
@@ -149,7 +174,6 @@ export default function AdminProductsPage() {
               <TableHead>Product</TableHead>
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Stock</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -158,7 +182,7 @@ export default function AdminProductsPage() {
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={5}
                   className="py-16 text-center text-sm text-muted-foreground"
                 >
                   <Loader2 className="mx-auto h-5 w-5 animate-spin" />
@@ -167,79 +191,94 @@ export default function AdminProductsPage() {
             ) : products.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={5}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
                   No products match your filters.
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((p) => {
-                const stockStatus =
-                  p.stock === 0
-                    ? { label: 'Out of stock', variant: 'destructive' }
-                    : p.stock <= 10
-                      ? { label: 'Low stock', variant: 'warning' }
-                      : { label: 'In stock', variant: 'success' }
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-secondary">
-                          <img
-                            src={p.imageUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <div>
-                          <p className="font-medium">{p.name}</p>
-                          <p className="font-mono text-xs text-muted-foreground">
-                            {p.slug}
-                          </p>
-                        </div>
+              products.map((p) => (
+                <TableRow
+                  key={p.id}
+                  className={!p.isActive ? 'opacity-50' : ''}
+                >
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-10 shrink-0 overflow-hidden rounded-md bg-secondary">
+                        <img
+                          src={p.imageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {p.category?.name ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular">
-                      {formatEGP(p.price)}
-                    </TableCell>
-                    <TableCell className="text-right tabular">
-                      {p.stock}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={stockStatus.variant}>
-                        {stockStatus.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          asChild
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Edit"
-                        >
-                          <Link to={`/admin/products/${p.id}`}>
-                            <Pencil className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          aria-label="Delete"
-                          onClick={() => setConfirmDelete(p)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <div>
+                        <p className="font-medium">{p.name}</p>
+                        <p className="font-mono text-xs text-muted-foreground">
+                          {p.slug}
+                        </p>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    {p.category?.name ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular">
+                    {formatEGP(p.price)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={p.isActive ? 'success' : 'destructive'}>
+                      {p.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={p.isActive ? 'Deactivate' : 'Activate'}
+                        onClick={() =>
+                          toggleMutation.mutate({
+                            id: p.id,
+                            isActive: !p.isActive,
+                          })
+                        }
+                        disabled={toggleMutation.isPending}
+                      >
+                        <Power className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Edit"
+                      >
+                        <Link to={`/admin/products/${p.id}`}>
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        aria-label="Delete"
+                        onClick={() => setConfirmDelete(p)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        aria-label="Force delete"
+                        onClick={() => setConfirmForceDelete(p)}
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
@@ -286,6 +325,44 @@ export default function AdminProductsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 'Delete'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Force-delete confirm */}
+      <Dialog
+        open={Boolean(confirmForceDelete)}
+        onOpenChange={(v) => !v && setConfirmForceDelete(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permanently delete product?</DialogTitle>
+            <DialogDescription>
+              You are about to <strong>permanently</strong> delete{' '}
+              <span className="font-semibold">{confirmForceDelete?.name}</span>.
+              This removes all data and images. Products that appear in existing
+              orders cannot be force-deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmForceDelete(null)}
+              disabled={forceDeleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmForceDelete}
+              disabled={forceDeleteMutation.isPending}
+            >
+              {forceDeleteMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Force delete'
               )}
             </Button>
           </DialogFooter>
