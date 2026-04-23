@@ -67,6 +67,80 @@ const productDetailInclude = {
   _count: { select: { reviews: true } },
 }
 
+// getAllProductsAdmin — no active filters, shows everything
+export const getAllProductsAdmin = async (query) => {
+  const {
+    page = 1,
+    limit = 20,
+    category,
+    search,
+    sortBy = 'createdAt',
+    order = 'desc',
+  } = query
+
+  const skip = (Number(page) - 1) * Number(limit)
+  const take = Number(limit)
+
+  const where = {}
+  if (category) {
+    where.category = { slug: category }
+  }
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } },
+    ]
+  }
+
+  const allowedSortFields = ['createdAt', 'price', 'name']
+  const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt'
+  const sortOrder = order === 'asc' ? 'asc' : 'desc'
+
+  const [products, total] = await prisma.$transaction([
+    prisma.product.findMany({
+      where,
+      skip,
+      take,
+      orderBy: { [sortField]: sortOrder },
+      include: productCardInclude,
+    }),
+    prisma.product.count({ where }),
+  ])
+  return {
+    products,
+    pagination: {
+      total,
+      page: Number(page),
+      limit: take,
+      totalPages: Math.ceil(total / take),
+      hasNextPage: skip + take < total,
+      hasPrevPage: Number(page) > 1,
+    },
+  }
+}
+
+// getProductByIdAdmin — fetch by ID, no active filter (for admin edit)
+export const getProductByIdAdmin = async (id) => {
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+      colors: {
+        orderBy: { createdAt: 'asc' },
+        include: {
+          sizes: { orderBy: { createdAt: 'asc' } },
+        },
+      },
+    },
+  })
+
+  if (!product) {
+    throw new AppError('Product not found', 404)
+  }
+
+  return product
+}
+
 // getAllProducts with pagination, filtering, sorting, and search
 export const getAllProducts = async (query) => {
   const {
@@ -215,15 +289,34 @@ export const updateProduct = async (id, data, files = {}) => {
     throw new AppError('Product not found', 404)
   }
 
-  const { name, price, comparePrice, ...restData } = data
+  const { name, price, comparePrice, isActive, categoryId, description, sku } =
+    data
 
   const updateData = {
-    ...restData,
     ...(name && { name: name.trim(), slug: slugify(name) }),
     ...(price !== undefined && { price: Number(price) }),
     ...(comparePrice !== undefined && {
       comparePrice: comparePrice ? Number(comparePrice) : null,
     }),
+    ...(isActive !== undefined && {
+      isActive: isActive === 'true' || isActive === true,
+    }),
+    ...(description !== undefined && {
+      description: description?.trim() || null,
+    }),
+    ...(sku !== undefined && { sku: sku?.trim() || null }),
+  }
+
+  // Only touch categoryId if it's a non-empty value AND actually different.
+  // Verify it exists to avoid the raw FK-violation error.
+  if (categoryId && categoryId !== product.categoryId) {
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+    })
+    if (!category) {
+      throw new AppError('Category not found', 404)
+    }
+    updateData.categoryId = categoryId
   }
 
   if (imageBuffer) {

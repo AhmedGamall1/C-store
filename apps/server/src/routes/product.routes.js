@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import {
   getAllProducts,
+  getAllProductsAdmin,
+  getProductByIdAdmin,
   getProductBySlug,
   createProduct,
   updateProduct,
@@ -21,6 +23,11 @@ const productUpload = upload.fields([
 
 // public routes
 router.get('/', getAllProducts)
+
+// admin listing & detail (before /:slug)
+router.get('/admin', protect, restrictTo('ADMIN'), getAllProductsAdmin)
+router.get('/admin/:id', protect, restrictTo('ADMIN'), getProductByIdAdmin)
+
 router.get('/:slug', getProductBySlug)
 
 // ---------- admin: product CRUD ----------

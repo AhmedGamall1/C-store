@@ -9,6 +9,24 @@ export const getAllProducts = async (req, res) => {
   })
 }
 
+// GET /api/products/admin
+export const getAllProductsAdmin = async (req, res) => {
+  const result = await productService.getAllProductsAdmin(req.query)
+  res.json({
+    status: 'success',
+    ...result,
+  })
+}
+
+// GET /api/products/admin/:id
+export const getProductByIdAdmin = async (req, res) => {
+  const product = await productService.getProductByIdAdmin(req.params.id)
+  res.json({
+    status: 'success',
+    data: { product },
+  })
+}
+
 // GET /api/products/:slug
 export const getProductBySlug = async (req, res) => {
   const product = await productService.getProductBySlug(req.params.slug)
