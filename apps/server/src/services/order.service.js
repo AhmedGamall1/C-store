@@ -163,7 +163,6 @@ export const createOrder = async (user, body) => {
           size: size.size,
           colorName: size.color.name,
           colorHex: size.color.hex,
-          productName: size.color.product.name,
         }
       }),
     })
