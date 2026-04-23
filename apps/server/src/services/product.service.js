@@ -20,6 +20,22 @@ const productCardInclude = {
   },
 }
 
+// Products are only "buyable" if they themselves are active, their category is
+// active, AND they have at least one active color that has at least one active
+// size with stock > 0. Used on all public reads.
+// const buyableProductWhere = {
+//   isActive: true,
+//   category: { isActive: true },
+//   colors: {
+//     some: {
+//       isActive: true,
+//       sizes: {
+//         some: { isActive: true, stock: { gt: 0 } },
+//       },
+//     },
+//   },
+// }
+
 // Full detail shape for a single product page
 const productDetailInclude = {
   category: { select: { id: true, name: true, slug: true } },
