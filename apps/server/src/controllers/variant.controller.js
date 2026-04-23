@@ -34,7 +34,7 @@ export const addSize = async (req, res) => {
 
 // PATCH /api/products/:id/colors/:colorId/sizes/:sizeId
 export const updateSize = async (req, res) => {
-  const size = await variantService.updateSize(req.params.sizeId, req.body)
+  const size = await variantService.updateSize(req.params, req.body)
   res.json({ status: 'success', data: { size } })
 }
 

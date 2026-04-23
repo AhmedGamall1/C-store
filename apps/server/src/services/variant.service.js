@@ -79,10 +79,22 @@ export const updateColor = async (colorId, data, files = {}) => {
   const color = await prisma.productColor.findUnique({ where: { id: colorId } })
   if (!color) throw new AppError('Color not found', 404)
 
+  const { productId } = color
   const { imageBuffer, galleryBuffers = [] } = files
   const updateData = {}
 
-  if (data.name !== undefined) updateData.name = data.name.trim()
+  if (data.name !== undefined) {
+    const trimmed = data.name.trim()
+    if (trimmed !== color.name) {
+      const duplicate = await prisma.productColor.findUnique({
+        where: { productId_name: { productId, name: trimmed } },
+      })
+      if (duplicate) {
+        throw new AppError('This color already exists for this product', 409)
+      }
+    }
+    updateData.name = trimmed
+  }
   if (data.hex !== undefined) updateData.hex = data.hex?.trim() || null
   if (data.isActive !== undefined) {
     updateData.isActive = data.isActive === true || data.isActive === 'true'
@@ -193,12 +205,25 @@ export const addSize = async (colorId, data) => {
   })
 }
 
-export const updateSize = async (sizeId, data) => {
+export const updateSize = async ({ colorId, sizeId }, data) => {
   const size = await prisma.productSize.findUnique({ where: { id: sizeId } })
   if (!size) throw new AppError('Size not found', 404)
 
   const updateData = {}
-  if (data.size !== undefined) updateData.size = String(data.size).trim()
+  if (data.size !== undefined) {
+    const trimmed = String(data.size).trim()
+
+    if (trimmed !== size.size) {
+      const duplicate = await prisma.productSize.findUnique({
+        where: { colorId_size: { colorId, size: trimmed } },
+      })
+      if (duplicate) {
+        throw new AppError('This size already exists for this color', 409)
+      }
+    }
+
+    updateData.size = trimmed
+  }
   if (data.stock !== undefined) {
     updateData.stock = Math.max(0, Math.floor(Number(data.stock) || 0))
   }
