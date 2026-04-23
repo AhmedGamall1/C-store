@@ -20,6 +20,14 @@ const productCardInclude = {
   },
 }
 
+const hasSellableVariant = {
+  colors: {
+    some: {
+      isActive: true,
+      sizes: { some: { isActive: true } },
+    },
+  },
+}
 // Products are only "buyable" if they themselves are active, their category is
 // active, AND they have at least one active color that has at least one active
 // size with stock > 0. Used on all public reads.
@@ -84,6 +92,7 @@ export const getAllProducts = async (query) => {
   const where = {
     isActive: true,
     category: { isActive: true },
+    ...hasSellableVariant,
   }
   if (category) {
     where.category = { slug: category }
@@ -137,6 +146,7 @@ export const getProductBySlug = async (slug) => {
       slug,
       isActive: true,
       category: { isActive: true },
+      ...hasSellableVariant,
     },
     include: productDetailInclude,
   })
