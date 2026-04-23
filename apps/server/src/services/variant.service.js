@@ -132,9 +132,35 @@ export const deleteColor = async (colorId) => {
     }
   }
 
+  // Last-sellable-variant guard: if this color is currently sellable AND
+  // the product is active, make sure at least one OTHER sellable color exists.
+  if (color.isActive) {
+    const product = await prisma.product.findUnique({
+      where: { id: color.productId },
+      select: { isActive: true },
+    })
+    if (product?.isActive) {
+      const otherSellableColor = await prisma.productColor.findFirst({
+        where: {
+          productId: color.productId,
+          id: { not: colorId },
+          isActive: true,
+          sizes: { some: { isActive: true } },
+        },
+        select: { id: true },
+      })
+      if (!otherSellableColor) {
+        throw new AppError(
+          `Cannot delete the last sellable color of an active product. Deactivate the product first, or add another color.`,
+          409
+        )
+      }
+    }
+  }
+
   await prisma.$transaction([
     prisma.cartItem.deleteMany({ where: { productSizeId: { in: sizeIds } } }),
-    prisma.productColor.delete({ where: { id: colorId } }), // cascades to sizes
+    prisma.productColor.delete({ where: { id: colorId } }),
   ])
 
   await deleteImage(color.imagePublicId)
@@ -188,7 +214,19 @@ export const updateSize = async (sizeId, data) => {
 }
 
 export const deleteSize = async (sizeId) => {
-  const size = await prisma.productSize.findUnique({ where: { id: sizeId } })
+  const size = await prisma.productSize.findUnique({
+    where: { id: sizeId },
+    include: {
+      color: {
+        select: {
+          id: true,
+          isActive: true,
+          productId: true,
+          product: { select: { id: true, isActive: true } },
+        },
+      },
+    },
+  })
   if (!size) throw new AppError('Size not found', 404)
 
   const orderItemCount = await prisma.orderItem.count({
@@ -199,6 +237,38 @@ export const deleteSize = async (sizeId) => {
       `Cannot delete this size — it's been ordered. Disable it via PATCH isActive=false instead.`,
       409
     )
+  }
+
+  // Last-sellable-variant guard
+  if (size.isActive && size.color.isActive && size.color.product.isActive) {
+    // Is there another active size under the SAME color?
+    const otherSizeInColor = await prisma.productSize.findFirst({
+      where: {
+        colorId: size.colorId,
+        id: { not: sizeId },
+        isActive: true,
+      },
+      select: { id: true },
+    })
+
+    if (!otherSizeInColor) {
+      // This color would become unsellable — is any OTHER color still sellable?
+      const otherSellableColor = await prisma.productColor.findFirst({
+        where: {
+          productId: size.color.productId,
+          id: { not: size.colorId },
+          isActive: true,
+          sizes: { some: { isActive: true } },
+        },
+        select: { id: true },
+      })
+      if (!otherSellableColor) {
+        throw new AppError(
+          `Cannot delete the last sellable size of an active product. Deactivate the product first, or add another size.`,
+          409
+        )
+      }
+    }
   }
 
   await prisma.$transaction([
