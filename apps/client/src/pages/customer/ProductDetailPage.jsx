@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate, useLocation } from 'react-router'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Heart,
   ShieldCheck,
@@ -9,6 +9,7 @@ import {
   Plus,
   ShoppingBag,
   Loader2,
+  Package,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ProductGallery } from '@/components/product/ProductGallery'
 import { SizePicker } from '@/components/product/SizePicker'
+import { ColorPicker } from '@/components/product/ColorPicker'
 import { ProductGrid } from '@/components/product/ProductGrid'
 import { Reviews } from '@/components/product/Reviews'
 import { StarRating } from '@/components/product/StarRating'
@@ -25,17 +27,13 @@ import { formatEGP } from '@/lib/utils'
 import { useAuth } from '@/providers/AuthProvider'
 import { useAddToCart } from '@/hooks/useCart'
 
-const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL']
-
-function deriveTag(stock) {
-  if (stock === 0) return 'Sold Out'
-  if (stock < 10) return 'Low Stock'
-  return null
-}
-
 function avgRating(reviews = []) {
   if (reviews.length === 0) return 0
   return reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+}
+
+function totalStock(color) {
+  return (color?.sizes ?? []).reduce((sum, s) => sum + (s.stock ?? 0), 0)
 }
 
 export default function ProductDetailPage() {
@@ -45,16 +43,58 @@ export default function ProductDetailPage() {
   const location = useLocation()
   const addToCart = useAddToCart()
   const [quantity, setQuantity] = useState(1)
+  const [selectedColorId, setSelectedColorId] = useState(null)
+  const [selectedSizeId, setSelectedSizeId] = useState(null)
   const { data: product, isLoading, isError } = useProduct(slug)
 
-  // Fetch related products (same category, for the "you might like" section)
+  // Default to the first color on first load / when product changes
+  useEffect(() => {
+    if (product?.colors?.length) {
+      setSelectedColorId((prev) =>
+        prev && product.colors.some((c) => c.id === prev)
+          ? prev
+          : product.colors[0].id
+      )
+    }
+  }, [product])
+
+  // Reset size + quantity whenever color changes
+  useEffect(() => {
+    setSelectedSizeId(null)
+    setQuantity(1)
+  }, [selectedColorId])
+
   const { data: relatedData } = useProducts(
     product ? { category: product.category.slug, limit: 5 } : {}
   )
-  // Filter out the current product from the related list
   const related = (relatedData?.products ?? [])
     .filter((p) => p.id !== product?.id)
     .slice(0, 4)
+
+  const selectedColor = useMemo(
+    () =>
+      product?.colors?.find((c) => c.id === selectedColorId) ??
+      product?.colors?.[0] ??
+      null,
+    [product, selectedColorId]
+  )
+
+  const selectedSize = useMemo(
+    () => selectedColor?.sizes?.find((s) => s.id === selectedSizeId) ?? null,
+    [selectedColor, selectedSizeId]
+  )
+
+  // Gallery = selected color cover + its extra images, de-duplicated.
+  // Falls back to the product cover only if the color has no imagery at all.
+  const galleryImages = useMemo(() => {
+    const list = [
+      selectedColor?.imageUrl,
+      ...(selectedColor?.images ?? []),
+    ].filter(Boolean)
+    const unique = Array.from(new Set(list))
+    if (unique.length) return unique
+    return product?.imageUrl ? [product.imageUrl] : []
+  }, [selectedColor, product?.imageUrl])
 
   if (isLoading) {
     return (
@@ -80,30 +120,41 @@ export default function ProductDetailPage() {
     )
   }
 
-  const tag = deriveTag(product.stock)
   const rating = avgRating(product.reviews)
   const reviewCount = product._count?.reviews ?? product.reviews?.length ?? 0
 
   const onSale =
     product.comparePrice && Number(product.comparePrice) > Number(product.price)
 
-  const soldOut = product.stock === 0
+  const colorStock = totalStock(selectedColor)
+  const productStock = (product.colors ?? []).reduce(
+    (sum, c) => sum + totalStock(c),
+    0
+  )
+  const soldOut = productStock === 0
+  const colorSoldOut = colorStock === 0
 
-  const maxQty = product.stock
+  const maxQty = selectedSize?.stock ?? colorStock
   const dec = () => setQuantity((q) => Math.max(1, q - 1))
-  const inc = () => setQuantity((q) => Math.min(maxQty, q + 1))
+  const inc = () => setQuantity((q) => Math.min(maxQty || 1, q + 1))
+
+  const canAddToCart =
+    !soldOut && !colorSoldOut && Boolean(selectedSize) && selectedSize.stock > 0
 
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: location.pathname } })
       return
     }
-    addToCart.mutate({ productId: product.id, quantity })
+    if (!selectedSize) return
+    addToCart.mutate({ productSizeId: selectedSize.id, quantity })
   }
 
-  // Use product.images if available, otherwise wrap the single imageUrl
-  const images =
-    product.images?.length > 0 ? product.images : [product.imageUrl]
+  const tag = soldOut
+    ? 'Sold Out'
+    : productStock < 10
+      ? 'Low Stock'
+      : null
 
   return (
     <>
@@ -130,8 +181,12 @@ export default function ProductDetailPage() {
 
         {/* Main grid */}
         <div className="mt-6 grid gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
-          {/* Gallery */}
-          <ProductGallery images={images} alt={product.name} />
+          {/* Gallery — keyed by color so internal state resets on color change */}
+          <ProductGallery
+            key={selectedColor?.id ?? 'cover'}
+            images={galleryImages}
+            alt={`${product.name}${selectedColor ? ` — ${selectedColor.name}` : ''}`}
+          />
 
           {/* Info */}
           <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
@@ -141,6 +196,11 @@ export default function ProductDetailPage() {
                   {product.category.name}
                 </span>
                 {tag ? <Badge variant="outline">{tag}</Badge> : null}
+                {product.sku ? (
+                  <span className="text-xs text-muted-foreground">
+                    SKU: {product.sku}
+                  </span>
+                ) : null}
               </div>
               <h1 className="font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
                 {product.name}
@@ -183,8 +243,27 @@ export default function ProductDetailPage() {
 
             <Separator />
 
+            {/* Color */}
+            {product.colors?.length > 0 && (
+              <ColorPicker
+                colors={product.colors}
+                value={selectedColor?.id}
+                onChange={setSelectedColorId}
+              />
+            )}
+
             {/* Size */}
-            <SizePicker sizes={DEFAULT_SIZES} />
+            {selectedColor?.sizes?.length > 0 ? (
+              <SizePicker
+                sizes={selectedColor.sizes}
+                value={selectedSizeId}
+                onChange={setSelectedSizeId}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No sizes available for this color.
+              </p>
+            )}
 
             {/* Quantity + Add to cart */}
             <div className="flex items-stretch gap-3">
@@ -194,7 +273,7 @@ export default function ProductDetailPage() {
                   className="grid h-12 w-10 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
                   aria-label="Decrease quantity"
                   onClick={dec}
-                  disabled={quantity <= 1}
+                  disabled={quantity <= 1 || !canAddToCart}
                 >
                   <Minus className="h-4 w-4" />
                 </button>
@@ -206,7 +285,7 @@ export default function ProductDetailPage() {
                   className="grid h-12 w-10 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
                   aria-label="Increase quantity"
                   onClick={inc}
-                  disabled={quantity >= maxQty}
+                  disabled={!canAddToCart || quantity >= maxQty}
                 >
                   <Plus className="h-4 w-4" />
                 </button>
@@ -214,7 +293,7 @@ export default function ProductDetailPage() {
               <Button
                 size="xl"
                 className="flex-1"
-                disabled={soldOut || addToCart.isPending}
+                disabled={!canAddToCart || addToCart.isPending}
                 onClick={handleAddToCart}
               >
                 {addToCart.isPending ? (
@@ -222,7 +301,13 @@ export default function ProductDetailPage() {
                 ) : (
                   <>
                     <ShoppingBag className="h-4 w-4" />
-                    {soldOut ? 'Sold Out' : 'Add to Cart'}
+                    {soldOut
+                      ? 'Sold Out'
+                      : colorSoldOut
+                        ? 'Color unavailable'
+                        : !selectedSize
+                          ? 'Select a size'
+                          : 'Add to Cart'}
                   </>
                 )}
               </Button>
@@ -231,12 +316,74 @@ export default function ProductDetailPage() {
               </Button>
             </div>
 
-            {/* Stock indicator */}
-            {!soldOut && product.stock < 10 ? (
+            {/* Stock indicator for currently selected variant */}
+            {selectedSize && selectedSize.stock > 0 && selectedSize.stock < 10 ? (
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">
-                Only {product.stock} left
+                Only {selectedSize.stock} left in {selectedColor.name} / {selectedSize.size}
               </p>
             ) : null}
+
+            {/* Variant availability matrix */}
+            {product.colors?.length > 0 && (
+              <div className="rounded-lg border p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em]">
+                  <Package className="h-3.5 w-3.5" />
+                  Availability
+                </div>
+                <ul className="mt-3 space-y-2 text-sm">
+                  {product.colors.map((c) => {
+                    const stock = totalStock(c)
+                    return (
+                      <li
+                        key={c.id}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-4 w-4 rounded-full border"
+                            style={{ backgroundColor: c.hex || '#ddd' }}
+                            aria-hidden
+                          />
+                          <span className="font-medium">{c.name}</span>
+                        </span>
+                        <span className="flex flex-wrap justify-end gap-1">
+                          {(c.sizes ?? []).length === 0 ? (
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
+                          ) : (
+                            c.sizes.map((s) => (
+                              <span
+                                key={s.id}
+                                title={
+                                  s.stock === 0
+                                    ? 'Out of stock'
+                                    : `${s.stock} in stock`
+                                }
+                                className={
+                                  s.stock === 0
+                                    ? 'rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground line-through'
+                                    : s.stock < 5
+                                      ? 'rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-800'
+                                      : 'rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase'
+                                }
+                              >
+                                {s.size}
+                                {s.stock > 0 && s.stock < 5 ? ` · ${s.stock}` : ''}
+                              </span>
+                            ))
+                          )}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Total stock: {productStock} across {product.colors.length}{' '}
+                  color{product.colors.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
 
             {/* Perks */}
             <ul className="space-y-2 rounded-lg border p-4 text-sm">

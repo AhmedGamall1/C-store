@@ -7,20 +7,20 @@ export async function getCart() {
 }
 
 // POST /api/cart/items
-export async function addCartItem({ productId, quantity = 1 }) {
-  const res = await api.post('/cart/items', { productId, quantity })
+export async function addCartItem({ productSizeId, quantity = 1 }) {
+  const res = await api.post('/cart/items', { productSizeId, quantity })
   return res.data.cart
 }
 
-// PATCH /api/cart/items/:productId
-export async function updateCartItem({ productId, quantity }) {
-  const res = await api.patch(`/cart/items/${productId}`, { quantity })
+// PATCH /api/cart/items/:productSizeId
+export async function updateCartItem({ productSizeId, quantity }) {
+  const res = await api.patch(`/cart/items/${productSizeId}`, { quantity })
   return res.data.cart
 }
 
-// DELETE /api/cart/items/:productId
-export async function removeCartItem(productId) {
-  const res = await api.delete(`/cart/items/${productId}`)
+// DELETE /api/cart/items/:productSizeId
+export async function removeCartItem(productSizeId) {
+  const res = await api.delete(`/cart/items/${productSizeId}`)
   return res.data.cart
 }
 
