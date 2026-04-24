@@ -1,12 +1,16 @@
+/* eslint-disable no-undef */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { Link, useNavigate, useParams } from 'react-router'
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
+  ChevronDown,
   ImagePlus,
   Loader2,
+  Palette,
   Pencil,
-  Plus,
   Power,
+  Ruler,
   Save,
   Trash2,
   X,
@@ -78,9 +82,16 @@ export default function ProductFormPage() {
     setPrice(product.price ?? '')
     setComparePrice(product.comparePrice ?? '')
     setSku(product.sku ?? '')
-    setCategoryId(product.categoryId ?? '')
     setIsActive(product.isActive ?? true)
   }, [product])
+
+  // Sync the selected category only once the categories list is loaded —
+  // Radix Select will otherwise silently fall back to the placeholder when
+  // value is set before a matching SelectItem exists.
+  useEffect(() => {
+    if (!product || categories.length === 0) return
+    setCategoryId(product.categoryId ?? '')
+  }, [product, categories])
 
   // Manage blob URL lifecycle
   useEffect(() => {
@@ -208,7 +219,14 @@ export default function ProductFormPage() {
           </Section>
 
           {/* Cover image */}
-          <Section title="Cover image" subtitle={isEdit ? 'Change the main product image.' : 'Upload the main product image.'}>
+          <Section
+            title="Cover image"
+            subtitle={
+              isEdit
+                ? 'Change the main product image.'
+                : 'Upload the main product image.'
+            }
+          >
             <div className="relative h-48 overflow-hidden rounded-md border bg-secondary">
               {displayedImage ? (
                 <>
@@ -249,7 +267,10 @@ export default function ProductFormPage() {
           <Section title="Pricing" subtitle="Prices are in EGP.">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Price" htmlFor="price">
-                <div className="relative">
+                <div className="flex items-stretch overflow-hidden rounded-md border bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="grid place-items-center border-r bg-muted px-3 text-xs font-semibold tracking-wide text-muted-foreground">
+                    EGP
+                  </span>
                   <Input
                     id="price"
                     type="number"
@@ -257,11 +278,10 @@ export default function ProductFormPage() {
                     step="0.01"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0.00"
                     required
+                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                    EGP
-                  </span>
                 </div>
               </Field>
               <Field
@@ -269,7 +289,10 @@ export default function ProductFormPage() {
                 htmlFor="comparePrice"
                 hint="Shows as a strikethrough when set."
               >
-                <div className="relative">
+                <div className="flex items-stretch overflow-hidden rounded-md border bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="grid place-items-center border-r bg-muted px-3 text-xs font-semibold tracking-wide text-muted-foreground">
+                    EGP
+                  </span>
                   <Input
                     id="comparePrice"
                     type="number"
@@ -277,10 +300,9 @@ export default function ProductFormPage() {
                     step="0.01"
                     value={comparePrice}
                     onChange={(e) => setComparePrice(e.target.value)}
+                    placeholder="0.00"
+                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                    EGP
-                  </span>
                 </div>
               </Field>
             </div>
@@ -288,10 +310,7 @@ export default function ProductFormPage() {
 
           {/* Colors & Sizes — only when editing (needs product ID) */}
           {isEdit && (
-            <ColorsSection
-              productId={id}
-              colors={product?.colors ?? []}
-            />
+            <ColorsSection productId={id} colors={product?.colors ?? []} />
           )}
         </div>
 
@@ -317,18 +336,32 @@ export default function ProductFormPage() {
           <Section title="Organization" compact>
             <div className="grid gap-4">
               <Field label="Category" htmlFor="category">
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {categories.length === 0 ? (
+                  <div className="flex h-10 items-center rounded-md border border-input bg-background px-3 text-sm text-muted-foreground">
+                    Loading categories…
+                  </div>
+                ) : (
+                  <Select
+                    key={isEdit ? `cat-${id}-${categories.length}` : 'cat-new'}
+                    value={categoryId}
+                    onValueChange={setCategoryId}
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue
+                        placeholder={
+                          product?.category?.name ?? 'Select category'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
               <Field label="SKU" htmlFor="sku">
                 <Input
@@ -371,6 +404,14 @@ function ColorsSection({ productId, colors }) {
   const [editColor, setEditColor] = useState(null)
   const [addSizeFor, setAddSizeFor] = useState(null)
   const [confirmDeleteColor, setConfirmDeleteColor] = useState(null)
+  const [expanded, setExpanded] = useState(() => new Set())
+
+  const toggleExpanded = (id) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
 
   const deleteColorMutation = useDeleteColor()
   const updateColorMutation = useUpdateColor()
@@ -378,125 +419,177 @@ function ColorsSection({ productId, colors }) {
   const updateSizeMutation = useUpdateSize()
 
   return (
-    <Section title="Colors & Sizes" subtitle="Manage color variants, each with its own sizes and stock.">
-      <div className="space-y-4">
-        {colors.map((color) => (
-          <div
-            key={color.id}
-            className={`rounded-lg border p-4${!color.isActive ? ' opacity-50' : ''}`}
-          >
-            {/* Color header */}
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-secondary">
-                <img
-                  src={color.imageUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{color.name}</p>
-                  {color.hex && (
-                    <span
-                      className="inline-block h-4 w-4 rounded-full border"
-                      style={{ backgroundColor: color.hex }}
-                    />
-                  )}
-                  <Badge variant={color.isActive ? 'success' : 'destructive'}>
-                    {color.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {color.sizes?.length ?? 0} sizes
-                  {color.images?.length ? ` · ${color.images.length} gallery images` : ''}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() =>
-                    updateColorMutation.mutate({
-                      productId,
-                      colorId: color.id,
-                      isActive: !color.isActive,
-                    })
-                  }
-                  disabled={updateColorMutation.isPending}
-                >
-                  <Power className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setEditColor(color)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setConfirmDeleteColor(color)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Sizes table */}
-            {color.sizes && color.sizes.length > 0 && (
-              <div className="mt-3 overflow-hidden rounded-md border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">Size</th>
-                      <th className="px-3 py-2 text-right font-medium">Stock</th>
-                      <th className="px-3 py-2 text-right font-medium">Price</th>
-                      <th className="px-3 py-2 text-left font-medium">SKU</th>
-                      <th className="px-3 py-2 text-center font-medium">Status</th>
-                      <th className="px-3 py-2 text-right font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {color.sizes.map((sz) => (
-                      <SizeRow
-                        key={sz.id}
-                        productId={productId}
-                        color={color}
-                        size={sz}
-                        updateMutation={updateSizeMutation}
-                        deleteMutation={deleteSizeMutation}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => setAddSizeFor(color)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add size
-            </Button>
+    <Section
+      title="Colors & Sizes"
+      subtitle="Manage color variants, each with its own sizes and stock."
+    >
+      <div className="space-y-3">
+        {colors.length === 0 ? (
+          <div className="rounded-lg border border-dashed bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
+            No colors yet. Add one to start managing sizes and stock.
           </div>
-        ))}
+        ) : null}
+
+        {colors.map((color) => {
+          const isOpen = expanded.has(color.id)
+          return (
+            <div
+              key={color.id}
+              className={`rounded-lg border bg-background${!color.isActive ? ' opacity-60' : ''}`}
+            >
+              {/* Color header — click to toggle */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => toggleExpanded(color.id)}
+                  aria-expanded={isOpen}
+                  className="flex flex-1 items-center gap-3 text-left"
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                      isOpen ? 'rotate-0' : '-rotate-90'
+                    }`}
+                  />
+                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-secondary">
+                    <img
+                      src={color.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate font-medium">{color.name}</p>
+                      {color.hex && (
+                        <span
+                          className="inline-block h-4 w-4 shrink-0 rounded-full border"
+                          style={{ backgroundColor: color.hex }}
+                        />
+                      )}
+                      <Badge
+                        variant={color.isActive ? 'success' : 'destructive'}
+                      >
+                        {color.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {color.sizes?.length ?? 0} sizes
+                      {color.images?.length
+                        ? ` · ${color.images.length} gallery images`
+                        : ''}
+                    </p>
+                  </div>
+                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={color.isActive ? 'Deactivate' : 'Activate'}
+                    onClick={() =>
+                      updateColorMutation.mutate({
+                        productId,
+                        colorId: color.id,
+                        isActive: !color.isActive,
+                      })
+                    }
+                    disabled={updateColorMutation.isPending}
+                  >
+                    <Power className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Edit color"
+                    onClick={() => setEditColor(color)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Delete color"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setConfirmDeleteColor(color)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Collapsible body */}
+              {isOpen && (
+                <div className="border-t px-4 py-3">
+                  {color.sizes && color.sizes.length > 0 ? (
+                    <div className="overflow-hidden rounded-md border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">
+                              Size
+                            </th>
+                            <th className="px-3 py-2 text-right font-medium">
+                              Stock
+                            </th>
+                            <th className="px-3 py-2 text-right font-medium">
+                              Price
+                            </th>
+                            <th className="px-3 py-2 text-left font-medium">
+                              SKU
+                            </th>
+                            <th className="px-3 py-2 text-center font-medium">
+                              Status
+                            </th>
+                            <th className="px-3 py-2 text-right font-medium">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {color.sizes.map((sz) => (
+                            <SizeRow
+                              key={sz.id}
+                              productId={productId}
+                              color={color}
+                              size={sz}
+                              updateMutation={updateSizeMutation}
+                              deleteMutation={deleteSizeMutation}
+                            />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      No sizes yet for this color.
+                    </p>
+                  )}
+
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 text-muted-foreground hover:text-foreground"
+                    onClick={() => setAddSizeFor(color)}
+                  >
+                    <Ruler className="h-3.5 w-3.5" />
+                    Add size
+                  </Button>
+                </div>
+              )}
+            </div>
+          )
+        })}
 
         <Button
           type="button"
-          variant="outline"
+          variant="default"
+          className="w-full sm:w-auto"
           onClick={() => setAddColorOpen(true)}
         >
-          <Plus className="h-4 w-4" />
+          <Palette className="h-4 w-4" />
           Add color
         </Button>
       </div>
@@ -528,8 +621,10 @@ function ColorsSection({ productId, colors }) {
           <DialogHeader>
             <DialogTitle>Delete color?</DialogTitle>
             <DialogDescription>
-              Delete <span className="font-semibold">{confirmDeleteColor?.name}</span> and
-              all its sizes. Colors that have been ordered cannot be deleted.
+              Delete{' '}
+              <span className="font-semibold">{confirmDeleteColor?.name}</span>{' '}
+              and all its sizes. Colors that have been ordered cannot be
+              deleted.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -568,7 +663,13 @@ function ColorsSection({ productId, colors }) {
   )
 }
 
-function SizeRow({ productId, color, size: sz, updateMutation, deleteMutation }) {
+function SizeRow({
+  productId,
+  color,
+  size: sz,
+  updateMutation,
+  deleteMutation,
+}) {
   const [editing, setEditing] = useState(false)
   const [stock, setStock] = useState(String(sz.stock))
   const [price, setPrice] = useState(sz.price ?? '')
@@ -663,7 +764,10 @@ function SizeRow({ productId, color, size: sz, updateMutation, deleteMutation })
         {sz.sku ?? '—'}
       </td>
       <td className="px-3 py-2 text-center">
-        <Badge variant={sz.isActive ? 'success' : 'destructive'} className="text-[10px]">
+        <Badge
+          variant={sz.isActive ? 'success' : 'destructive'}
+          className="text-[10px]"
+        >
           {sz.isActive ? 'Active' : 'Inactive'}
         </Badge>
       </td>
@@ -739,7 +843,10 @@ function AddColorDialog({ open, onOpenChange, productId }) {
   }, [open])
 
   useEffect(() => {
-    if (!imageFile) { setPreviewUrl(null); return }
+    if (!imageFile) {
+      setPreviewUrl(null)
+      return
+    }
     const url = URL.createObjectURL(imageFile)
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
@@ -753,6 +860,7 @@ function AddColorDialog({ open, onOpenChange, productId }) {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
     if (!imageFile) return
     try {
       await addMutation.mutateAsync({
@@ -810,7 +918,11 @@ function AddColorDialog({ open, onOpenChange, productId }) {
             <div className="relative h-32 overflow-hidden rounded-md border bg-secondary">
               {previewUrl ? (
                 <>
-                  <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={previewUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
@@ -845,8 +957,15 @@ function AddColorDialog({ open, onOpenChange, productId }) {
             <Label>Gallery images (optional, up to 5)</Label>
             <div className="grid grid-cols-5 gap-2">
               {galleryPreviews.map((url, i) => (
-                <div key={i} className="group relative aspect-square overflow-hidden rounded-md border bg-secondary">
-                  <img src={url} alt="" className="h-full w-full object-cover" />
+                <div
+                  key={i}
+                  className="group relative aspect-square overflow-hidden rounded-md border bg-secondary"
+                >
+                  <img
+                    src={url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() =>
@@ -926,7 +1045,10 @@ function EditColorDialog({ color, onClose, productId }) {
   }, [color])
 
   useEffect(() => {
-    if (!imageFile) { setPreviewUrl(null); return }
+    if (!imageFile) {
+      setPreviewUrl(null)
+      return
+    }
     const url = URL.createObjectURL(imageFile)
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
@@ -945,6 +1067,7 @@ function EditColorDialog({ color, onClose, productId }) {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
     try {
       await updateMutation.mutateAsync({
         productId,
@@ -1001,7 +1124,11 @@ function EditColorDialog({ color, onClose, productId }) {
             <div className="relative h-32 overflow-hidden rounded-md border bg-secondary">
               {displayImage ? (
                 <>
-                  <img src={displayImage} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={displayImage}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
@@ -1040,18 +1167,28 @@ function EditColorDialog({ color, onClose, productId }) {
               </p>
             ) : existingGallery.length > 0 ? (
               <p className="text-xs text-muted-foreground">
-                Current gallery ({existingGallery.length}). Upload new files to replace all.
+                Current gallery ({existingGallery.length}). Upload new files to
+                replace all.
               </p>
             ) : null}
             <div className="grid grid-cols-5 gap-2">
               {showNewGallery
                 ? galleryPreviews.map((url, i) => (
-                    <div key={i} className="group relative aspect-square overflow-hidden rounded-md border bg-secondary">
-                      <img src={url} alt="" className="h-full w-full object-cover" />
+                    <div
+                      key={i}
+                      className="group relative aspect-square overflow-hidden rounded-md border bg-secondary"
+                    >
+                      <img
+                        src={url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                       <button
                         type="button"
                         onClick={() =>
-                          setGalleryFiles((prev) => prev.filter((_, j) => j !== i))
+                          setGalleryFiles((prev) =>
+                            prev.filter((_, j) => j !== i)
+                          )
                         }
                         className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-background/90 text-destructive opacity-0 transition-opacity group-hover:opacity-100"
                       >
@@ -1060,8 +1197,15 @@ function EditColorDialog({ color, onClose, productId }) {
                     </div>
                   ))
                 : existingGallery.map((url, i) => (
-                    <div key={i} className="aspect-square overflow-hidden rounded-md border bg-secondary">
-                      <img src={url} alt="" className="h-full w-full object-cover" />
+                    <div
+                      key={i}
+                      className="aspect-square overflow-hidden rounded-md border bg-secondary"
+                    >
+                      <img
+                        src={url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                   ))}
               {((showNewGallery && galleryFiles.length < 5) ||
@@ -1128,6 +1272,7 @@ function AddSizeDialog({ color, onClose, productId }) {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
     try {
       await addMutation.mutateAsync({
         productId,

@@ -8,7 +8,6 @@ import {
   Trash2,
   Loader2,
   Power,
-  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,7 +38,6 @@ import {
 import { Pagination } from '@/components/product/Pagination'
 import {
   useAdminProducts,
-  useDeleteProduct,
   useForceDeleteProduct,
   useToggleProductActive,
 } from '@/hooks/useProducts'
@@ -57,7 +55,6 @@ export default function AdminProductsPage() {
   const [cat, setCat] = useState('all')
   const [page, setPage] = useState(1)
   const [confirmDelete, setConfirmDelete] = useState(null)
-  const [confirmForceDelete, setConfirmForceDelete] = useState(null)
 
   // Debounce search input → server query (300ms)
   useEffect(() => {
@@ -84,8 +81,7 @@ export default function AdminProductsPage() {
   const products = data?.products ?? []
   const pagination = data?.pagination
 
-  const deleteMutation = useDeleteProduct()
-  const forceDeleteMutation = useForceDeleteProduct()
+  const deleteMutation = useForceDeleteProduct()
   const toggleMutation = useToggleProductActive()
 
   // If we deleted the last item on a non-first page, drop back one page
@@ -101,15 +97,6 @@ export default function AdminProductsPage() {
       setConfirmDelete(null)
     } catch {
       // toast handled in hook; leave dialog open so user sees the reason
-    }
-  }
-
-  const handleConfirmForceDelete = async () => {
-    try {
-      await forceDeleteMutation.mutateAsync(confirmForceDelete.id)
-      setConfirmForceDelete(null)
-    } catch {
-      // toast handled in hook
     }
   }
 
@@ -266,15 +253,6 @@ export default function AdminProductsPage() {
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        aria-label="Force delete"
-                        onClick={() => setConfirmForceDelete(p)}
-                      >
-                        <AlertTriangle className="h-4 w-4" />
-                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -300,12 +278,12 @@ export default function AdminProductsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete product?</DialogTitle>
+            <DialogTitle>Permanently delete product?</DialogTitle>
             <DialogDescription>
-              You are about to delete{' '}
+              You are about to <strong>permanently</strong> delete{' '}
               <span className="font-semibold">{confirmDelete?.name}</span>. This
-              soft-deletes it — the product is hidden from the store and from
-              admin. Existing orders keep their item history.
+              removes all data and images. Products that appear in existing
+              orders cannot be deleted.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -325,44 +303,6 @@ export default function AdminProductsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 'Delete'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Force-delete confirm */}
-      <Dialog
-        open={Boolean(confirmForceDelete)}
-        onOpenChange={(v) => !v && setConfirmForceDelete(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Permanently delete product?</DialogTitle>
-            <DialogDescription>
-              You are about to <strong>permanently</strong> delete{' '}
-              <span className="font-semibold">{confirmForceDelete?.name}</span>.
-              This removes all data and images. Products that appear in existing
-              orders cannot be force-deleted.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmForceDelete(null)}
-              disabled={forceDeleteMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmForceDelete}
-              disabled={forceDeleteMutation.isPending}
-            >
-              {forceDeleteMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Force delete'
               )}
             </Button>
           </DialogFooter>
