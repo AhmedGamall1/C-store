@@ -29,3 +29,9 @@ export async function clearCart() {
   const res = await api.delete('/cart')
   return res.data.cart
 }
+
+// POST /api/cart/merge — body: { items: [{ productSizeId, quantity }] }
+export async function mergeCart(items) {
+  const res = await api.post('/cart/merge', { items })
+  return res.data.cart
+}

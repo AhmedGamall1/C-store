@@ -1,12 +1,18 @@
 import { Link } from 'react-router'
-import { Minus, Plus, ShoppingBag, Trash2, Loader2 } from 'lucide-react'
+import {
+  Minus,
+  Plus,
+  ShoppingBag,
+  Trash2,
+  Loader2,
+  AlertTriangle,
+} from 'lucide-react'
 import {
   Sheet,
   SheetContent,
   SheetTrigger,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
   SheetClose,
 } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
@@ -24,11 +30,17 @@ export function CartDrawer({ children }) {
       <SheetTrigger asChild>{children}</SheetTrigger>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-[420px]"
       >
-        <SheetHeader className="flex-row items-center justify-between border-b p-6">
-          <SheetTitle className="font-display uppercase tracking-wide">
-            Your Cart ({totalItems})
+        {/* Header — pr-12 keeps the title clear of the sheet's absolute X */}
+        <SheetHeader className="flex-row items-center justify-between gap-3 border-b px-6 py-4 pr-12">
+          <SheetTitle className="truncate font-display text-base uppercase tracking-wide">
+            Your Cart
+            {totalItems > 0 ? (
+              <span className="ml-2 rounded-full bg-foreground px-2 py-0.5 text-[11px] font-semibold text-background">
+                {totalItems}
+              </span>
+            ) : null}
           </SheetTitle>
         </SheetHeader>
 
@@ -53,22 +65,23 @@ export function CartDrawer({ children }) {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-6">
-              <ul className="space-y-5">
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <ul className="divide-y">
                 {items.map((item) => (
                   <CartLineItem key={item.id} item={item} />
                 ))}
               </ul>
             </div>
 
-            <SheetFooter className="flex-col gap-0 border-t p-6">
-              <div className="space-y-2 w-full">
+            {/* Footer — a plain div so we don't inherit flex-col-reverse from SheetFooter */}
+            <div className="border-t bg-background px-5 py-5">
+              <div className="space-y-1.5">
                 <Row label="Subtotal" value={formatEGP(total)} />
                 <Row
                   label="Shipping"
                   value={
                     <span className="text-muted-foreground">
-                      Calculated at checkout
+                      At checkout
                     </span>
                   }
                 />
@@ -79,24 +92,22 @@ export function CartDrawer({ children }) {
                   className="text-base font-semibold"
                 />
               </div>
-              <div className="mt-6 flex w-full flex-col gap-2">
+              <div className="mt-4 flex flex-col gap-2">
                 <SheetClose asChild>
                   <Button asChild size="lg" className="w-full">
                     <Link to="/checkout">Checkout</Link>
                   </Button>
                 </SheetClose>
                 <SheetClose asChild>
-                  <Button
-                    asChild
-                    variant="outline"
-                    size="lg"
-                    className="w-full"
-                  >
+                  <Button asChild variant="outline" className="w-full">
                     <Link to="/cart">View cart</Link>
                   </Button>
                 </SheetClose>
               </div>
-            </SheetFooter>
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                Taxes & shipping calculated at checkout
+              </p>
+            </div>
           </>
         )}
       </SheetContent>
@@ -109,73 +120,111 @@ function CartLineItem({ item }) {
   const removeItem = useRemoveCartItem()
 
   const busy = updateItem.isPending || removeItem.isPending
+  const unavailable = !item.isActive
+  const overStock = item.quantity > item.stock
 
-  const inc = () =>
+  const inc = () => {
+    if (item.quantity >= item.stock) return
     updateItem.mutate({
-      productId: item.productId,
+      productSizeId: item.productSizeId,
       quantity: item.quantity + 1,
-    })
-
-  const dec = () => {
-    if (item.quantity <= 1) return // server would reject quantity < 1 anyway
-    updateItem.mutate({
-      productId: item.productId,
-      quantity: item.quantity - 1,
+      stock: item.stock,
     })
   }
 
-  const remove = () => removeItem.mutate(item.productId)
+  const dec = () => {
+    if (item.quantity <= 1) return
+    updateItem.mutate({
+      productSizeId: item.productSizeId,
+      quantity: item.quantity - 1,
+      stock: item.stock,
+    })
+  }
+
+  const remove = () => removeItem.mutate(item.productSizeId)
 
   return (
-    <li className="flex gap-4">
+    <li className="flex gap-3 py-4 first:pt-1 last:pb-1">
       <Link
         to={`/product/${item.product.slug}`}
-        className="relative block h-24 w-20 shrink-0 overflow-hidden rounded-md bg-secondary"
+        className="relative block h-24 w-[72px] shrink-0 overflow-hidden rounded-md bg-secondary"
       >
         <img
-          src={item.product.imageUrl}
+          src={item.imageUrl}
           alt={item.product.name}
-          className="aspect-product h-full w-full object-cover"
+          className={cn(
+            'aspect-product h-full w-full object-cover',
+            unavailable && 'opacity-50 grayscale'
+          )}
         />
       </Link>
-      <div className="flex flex-1 flex-col">
+
+      {/* Body column — min-w-0 is required so flex children can truncate */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <Link
-              to={`/product/${item.product.slug}`}
-              className="line-clamp-2 text-sm font-medium hover:underline"
-            >
-              {item.product.name}
-            </Link>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            aria-label="Remove"
-            onClick={remove}
-            disabled={busy}
+          <Link
+            to={`/product/${item.product.slug}`}
+            className="line-clamp-2 break-words pr-1 text-sm font-medium leading-snug hover:underline"
+            title={item.product.name}
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+            {item.product.name}
+          </Link>
+          <p className="shrink-0 text-sm font-semibold tabular">
+            {formatEGP(item.subtotal)}
+          </p>
         </div>
-        <div className="mt-auto flex items-center justify-between">
+
+        <p
+          className="mt-1 truncate text-xs text-muted-foreground"
+          title={`${item.color.name} · Size ${item.size}`}
+        >
+          {item.color.name} · Size {item.size}
+        </p>
+
+        {unavailable ? (
+          <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
+            <AlertTriangle className="h-3 w-3 shrink-0" />
+            <span className="truncate">No longer available</span>
+          </p>
+        ) : overStock ? (
+          <p className="mt-1 flex items-center gap-1 text-xs text-amber-700">
+            <AlertTriangle className="h-3 w-3 shrink-0" />
+            <span className="truncate">Only {item.stock} in stock</span>
+          </p>
+        ) : null}
+
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <QuantityStepper
             value={item.quantity}
             onDecrement={dec}
             onIncrement={inc}
-            disabled={busy}
+            disabled={busy || unavailable}
+            canIncrement={item.quantity < item.stock}
           />
-          <p className="text-sm font-semibold tabular">
-            {formatEGP(item.subtotal)}
-          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
+            aria-label="Remove item"
+            onClick={remove}
+            disabled={busy}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Remove
+          </Button>
         </div>
       </div>
     </li>
   )
 }
 
-function QuantityStepper({ value, onIncrement, onDecrement, disabled }) {
+function QuantityStepper({
+  value,
+  onIncrement,
+  onDecrement,
+  disabled,
+  canIncrement = true,
+}) {
   return (
     <div className="inline-flex h-8 items-center rounded-md border">
       <button
@@ -195,7 +244,7 @@ function QuantityStepper({ value, onIncrement, onDecrement, disabled }) {
         className="grid h-full w-8 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
         aria-label="Increase quantity"
         onClick={onIncrement}
-        disabled={disabled}
+        disabled={disabled || !canIncrement}
       >
         <Plus className="h-3 w-3" />
       </button>
@@ -205,9 +254,9 @@ function QuantityStepper({ value, onIncrement, onDecrement, disabled }) {
 
 function Row({ label, value, className }) {
   return (
-    <div className={cn('flex items-center justify-between text-sm', className)}>
-      <span className="text-muted-foreground">{label}</span>
-      <span className="tabular">{value}</span>
+    <div className={cn('flex items-center justify-between gap-3 text-sm', className)}>
+      <span className="truncate text-muted-foreground">{label}</span>
+      <span className="shrink-0 tabular">{value}</span>
     </div>
   )
 }

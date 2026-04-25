@@ -1,16 +1,11 @@
-import { Link, useNavigate, useLocation } from 'react-router'
-import { Heart, Loader2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
+import { Heart } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/providers/AuthProvider'
-import { useAddToCart } from '@/hooks/useCart'
 import { cn, formatEGP } from '@/lib/utils'
 
 export function ProductCard({ product, className }) {
-  const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
-  const addToCart = useAddToCart()
 
   const soldOut = product.stock === 0
   const onSale =
@@ -23,17 +18,12 @@ export function ProductCard({ product, className }) {
       )
     : 0
 
+  // No quick-add: the cart needs a specific size/color, so send shoppers to
+  // the detail page where they can pick a variant.
   const handleQuickAdd = (e) => {
-    // The card is wrapped in a <Link>. Stop both the click and any default nav.
     e.preventDefault()
     e.stopPropagation()
-
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: location.pathname } })
-      return
-    }
-
-    addToCart.mutate({ productId: product.id, quantity: 1 })
+    navigate(`/product/${product.slug}`)
   }
 
   return (
@@ -90,16 +80,10 @@ export function ProductCard({ product, className }) {
         <div className="pointer-events-none absolute inset-x-3 bottom-3 translate-y-2 opacity-0 transition-all duration-300 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
           <Button
             className="w-full"
-            disabled={soldOut || addToCart.isPending}
+            disabled={soldOut}
             onClick={handleQuickAdd}
           >
-            {addToCart.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : soldOut ? (
-              'Sold Out'
-            ) : (
-              'Quick Add'
-            )}
+            {soldOut ? 'Sold Out' : 'View options'}
           </Button>
         </div>
       </Link>

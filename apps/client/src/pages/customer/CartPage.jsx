@@ -1,5 +1,13 @@
 import { Link } from 'react-router'
-import { Minus, Plus, ShoppingBag, Trash2, Loader2 } from 'lucide-react'
+import {
+  Minus,
+  Plus,
+  ShoppingBag,
+  Trash2,
+  Loader2,
+  AlertTriangle,
+} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
@@ -108,23 +116,27 @@ function CartLineItem({ item }) {
   const removeItem = useRemoveCartItem()
 
   const busy = updateItem.isPending || removeItem.isPending
-  const maxQty = item.product.stock
+  const maxQty = item.stock
+  const unavailable = !item.isActive
+  const overStock = item.quantity > item.stock
 
   const inc = () => {
     if (item.quantity >= maxQty) return
     updateItem.mutate({
-      productId: item.productId,
+      productSizeId: item.productSizeId,
       quantity: item.quantity + 1,
+      stock: item.stock,
     })
   }
   const dec = () => {
     if (item.quantity <= 1) return
     updateItem.mutate({
-      productId: item.productId,
+      productSizeId: item.productSizeId,
       quantity: item.quantity - 1,
+      stock: item.stock,
     })
   }
-  const remove = () => removeItem.mutate(item.productId)
+  const remove = () => removeItem.mutate(item.productSizeId)
 
   return (
     <li className="flex gap-4 py-6 first:pt-0">
@@ -133,34 +145,55 @@ function CartLineItem({ item }) {
         className="relative block h-32 w-24 shrink-0 overflow-hidden rounded-md bg-secondary sm:h-40 sm:w-32"
       >
         <img
-          src={item.product.imageUrl}
+          src={item.imageUrl}
           alt={item.product.name}
-          className="aspect-product h-full w-full object-cover"
+          className={cn(
+            'aspect-product h-full w-full object-cover',
+            unavailable && 'opacity-50 grayscale'
+          )}
         />
       </Link>
       <div className="flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <Link
               to={`/product/${item.product.slug}`}
-              className="mt-1 block text-sm font-medium hover:underline sm:text-base"
+              className="block text-sm font-medium hover:underline sm:text-base"
             >
               {item.product.name}
             </Link>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {item.color.name} · Size {item.size}
+            </p>
+            {unavailable ? (
+              <Badge variant="destructive" className="mt-2 gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                No longer available
+              </Badge>
+            ) : overStock ? (
+              <Badge variant="warning" className="mt-2 gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Only {item.stock} in stock
+              </Badge>
+            ) : item.stock < 5 ? (
+              <p className="mt-1 text-xs text-amber-700">
+                Only {item.stock} left
+              </p>
+            ) : null}
           </div>
           <p className="text-sm font-semibold tabular sm:text-base">
             {formatEGP(item.subtotal)}
           </p>
         </div>
 
-        <div className="mt-auto flex items-center justify-between">
+        <div className="mt-auto flex items-center justify-between pt-3">
           <div className="inline-flex items-center rounded-md border">
             <button
               type="button"
               className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
               aria-label="Decrease"
               onClick={dec}
-              disabled={busy || item.quantity <= 1}
+              disabled={busy || item.quantity <= 1 || unavailable}
             >
               <Minus className="h-3 w-3" />
             </button>
@@ -172,7 +205,7 @@ function CartLineItem({ item }) {
               className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
               aria-label="Increase"
               onClick={inc}
-              disabled={busy || item.quantity >= maxQty}
+              disabled={busy || item.quantity >= maxQty || unavailable}
             >
               <Plus className="h-3 w-3" />
             </button>

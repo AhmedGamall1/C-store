@@ -57,3 +57,15 @@ export async function updateSize(productId, colorId, sizeId, data) {
 export async function deleteSize(productId, colorId, sizeId) {
   await api.delete(`/products/${productId}/colors/${colorId}/sizes/${sizeId}`)
 }
+
+// ── Bulk lookup ─────────────────────────────────────────
+// GET /api/variants/bulk?ids=<csv>
+// Missing ids are absent from the response; inactive variants come back with
+// isActive:false so the UI can flag them instead of silently dropping them.
+export async function getVariantsBulk(ids) {
+  if (!ids?.length) return []
+  const res = await api.get('/variants/bulk', {
+    params: { ids: ids.join(',') },
+  })
+  return res.data.variants ?? []
+}

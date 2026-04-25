@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate, useLocation } from 'react-router'
+import { useParams, Link } from 'react-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Heart,
@@ -24,7 +24,6 @@ import { StarRating } from '@/components/product/StarRating'
 import { SectionHeader } from '@/components/common/SectionHeader'
 import { useProduct, useProducts } from '@/hooks/useProducts'
 import { formatEGP } from '@/lib/utils'
-import { useAuth } from '@/providers/AuthProvider'
 import { useAddToCart } from '@/hooks/useCart'
 
 function avgRating(reviews = []) {
@@ -38,9 +37,6 @@ function totalStock(color) {
 
 export default function ProductDetailPage() {
   const { slug } = useParams()
-  const { isAuthenticated } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
   const addToCart = useAddToCart()
   const [quantity, setQuantity] = useState(1)
   const [selectedColorId, setSelectedColorId] = useState(null)
@@ -142,12 +138,12 @@ export default function ProductDetailPage() {
     !soldOut && !colorSoldOut && Boolean(selectedSize) && selectedSize.stock > 0
 
   const handleAddToCart = () => {
-    if (!isAuthenticated) {
-      navigate('/login', { state: { from: location.pathname } })
-      return
-    }
     if (!selectedSize) return
-    addToCart.mutate({ productSizeId: selectedSize.id, quantity })
+    addToCart.mutate({
+      productSizeId: selectedSize.id,
+      quantity,
+      stock: selectedSize.stock,
+    })
   }
 
   const tag = soldOut

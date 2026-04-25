@@ -1,13 +1,31 @@
 import { createContext, useContext } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import {
   getMe,
   login as loginApi,
   logout as logoutApi,
   register as registerApi,
 } from '@/api/auth'
+import { mergeCart } from '@/api/cart'
+import { getGuestItems, clearGuestCart } from '@/lib/guestCart'
 
 const AuthContext = createContext(null)
+
+// Merge anything the user added as a guest into their server cart. Silent no-op
+// when there's nothing to merge; on failure we keep the guest items in
+// localStorage so the user can retry instead of losing their cart.
+async function mergeGuestIntoServer(queryClient) {
+  const items = getGuestItems()
+  if (items.length === 0) return
+  try {
+    const cart = await mergeCart(items)
+    clearGuestCart()
+    queryClient.setQueryData(['cart'], cart)
+  } catch (err) {
+    toast.error(err.message || 'Failed to merge your cart')
+  }
+}
 
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient()
@@ -29,15 +47,17 @@ export function AuthProvider({ children }) {
 
   const loginMutation = useMutation({
     mutationFn: loginApi,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.setQueryData(['me'], data)
+      await mergeGuestIntoServer(queryClient)
     },
   })
 
   const registerMutation = useMutation({
     mutationFn: registerApi,
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.setQueryData(['me'], data)
+      await mergeGuestIntoServer(queryClient)
     },
   })
 
