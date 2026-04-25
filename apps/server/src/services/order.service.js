@@ -9,6 +9,35 @@ const orderInclude = {
   address: true,
 }
 
+// Admin views need product imagery + names alongside the snapshot fields
+const adminOrderInclude = {
+  items: {
+    include: {
+      productSize: {
+        select: {
+          id: true,
+          color: {
+            select: {
+              imageUrl: true,
+              product: { select: { id: true, name: true, slug: true } },
+            },
+          },
+        },
+      },
+    },
+  },
+  address: true,
+  user: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+    },
+  },
+}
+
 // Reach through size → color → product so we can validate + resolve price
 const sizeLookupInclude = {
   color: {
@@ -318,12 +347,7 @@ export const getAllOrders = async (query) => {
       skip,
       take,
       orderBy: { createdAt: 'desc' },
-      include: {
-        ...orderInclude,
-        user: {
-          select: { id: true, firstName: true, lastName: true, email: true },
-        },
-      },
+      include: adminOrderInclude,
     }),
     prisma.order.count({ where }),
   ])
@@ -344,12 +368,7 @@ export const getAllOrders = async (query) => {
 export const getOrderByIdAdmin = async (orderId) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: {
-      ...orderInclude,
-      user: {
-        select: { id: true, firstName: true, lastName: true, email: true },
-      },
-    },
+    include: adminOrderInclude,
   })
   if (!order) throw new AppError('Order not found', 404)
   return order
