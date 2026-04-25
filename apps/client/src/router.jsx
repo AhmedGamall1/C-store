@@ -43,13 +43,14 @@ export const router = createBrowserRouter([
       { path: 'shop/:category', element: <ShopPage /> },
       { path: 'product/:slug', element: <ProductDetailPage /> },
       { path: 'cart', element: <CartPage /> },
+      // Guests can check out — order ownership is enforced server-side.
+      { path: 'checkout', element: <CheckoutPage /> },
+      { path: 'order/success/:id', element: <OrderConfirmationPage /> },
 
       // Auth-required under the same customer layout
       {
         element: <ProtectedRoute />,
         children: [
-          { path: 'checkout', element: <CheckoutPage /> },
-          { path: 'order/success/:id', element: <OrderConfirmationPage /> },
           {
             path: 'account',
             element: <AccountLayout />,

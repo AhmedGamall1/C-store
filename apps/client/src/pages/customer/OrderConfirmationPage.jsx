@@ -1,25 +1,61 @@
-import { Link, useParams } from 'react-router'
-import { Check, Package, Truck, Loader2 } from 'lucide-react'
+import { Link, useLocation, useParams } from 'react-router'
+import { Check, Loader2, Package, Truck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { ADDRESSES } from '@/data/user'
-import { useCart } from '@/hooks/useCart'
+import { useAuth } from '@/providers/AuthProvider'
+import { useMyOrder } from '@/hooks/useOrders'
 import { formatEGP } from '@/lib/utils'
 
 export default function OrderConfirmationPage() {
   const { id } = useParams()
-  const { cart, isLoading } = useCart()
-  const { items, total } = cart
-  const shipping = 30
-  const grandTotal = total + shipping
+  const location = useLocation()
+  const { isAuthenticated } = useAuth()
 
-  if (isLoading) {
+  // Order pushed via navigate state on placement (works for guests too)
+  const stateOrder = location.state?.order ?? null
+
+  // Authenticated users can refetch on reload; guests rely on state.
+  const { data: fetched, isLoading } = useMyOrder(
+    isAuthenticated && !stateOrder ? id : undefined
+  )
+
+  const order = stateOrder ?? fetched
+
+  if (!order && isLoading) {
     return (
       <div className="flex items-center justify-center py-40">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
+
+  // Guest reload or unknown order — show a generic acknowledgement
+  if (!order) {
+    return (
+      <div className="container-page max-w-2xl py-14 text-center">
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-accent text-accent-foreground">
+          <Check className="h-8 w-8" />
+        </div>
+        <h1 className="mt-6 font-display text-3xl font-bold tracking-tight sm:text-4xl">
+          Thanks for your order!
+        </h1>
+        <p className="mt-3 text-muted-foreground">
+          We've recorded your order. Please check your email for confirmation
+          details.
+        </p>
+        <div className="mt-8 flex justify-center gap-3">
+          <Button asChild>
+            <Link to="/shop">Keep shopping</Link>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const ref = order.orderNumber ? `#${order.orderNumber}` : id
+  const street = order.address?.street ?? order.shippingStreet
+  const city = order.address?.city ?? order.shippingCity
+  const governorate = order.address?.governorate ?? order.shippingGovernorate
 
   return (
     <div className="container-page max-w-3xl py-14">
@@ -31,11 +67,13 @@ export default function OrderConfirmationPage() {
           Order placed!
         </h1>
         <p className="mt-3 text-muted-foreground">
-          Thanks for the order. Your confirmation is on its way to your inbox.
+          {order.guestEmail || isAuthenticated
+            ? "Thanks for the order. A confirmation is on its way to your inbox."
+            : "Thanks for the order. We'll be in touch on the phone you provided."}
         </p>
         <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm">
           <span className="text-muted-foreground">Order</span>
-          <span className="font-semibold tabular">{id || 'ord-demo'}</span>
+          <span className="font-semibold tabular">{ref}</span>
         </p>
       </div>
 
@@ -50,41 +88,42 @@ export default function OrderConfirmationPage() {
       <div className="mt-12 rounded-lg border">
         <div className="p-6">
           <h2 className="font-display text-lg font-semibold uppercase tracking-wide">
-            Order Summary
+            Order summary
           </h2>
           <ul className="mt-5 space-y-4">
-            {items.map((item) => (
-              <li key={item.id} className="flex gap-4">
-                <div className="relative h-20 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
-                  <img
-                    src={item.product.imageUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
+            {order.items.map((item) => {
+              const lineTotal = Number(item.price) * item.quantity
+              return (
+                <li key={item.id} className="flex gap-4">
+                  <div
+                    className="h-16 w-12 shrink-0 rounded-md border"
+                    style={{ backgroundColor: item.colorHex || '#f4f4f4' }}
+                    aria-hidden
                   />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{item.product.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Qty {item.quantity}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{item.colorName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Size {item.size} · Qty {item.quantity}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold tabular">
+                    {formatEGP(lineTotal)}
                   </p>
-                </div>
-                <p className="text-sm font-semibold tabular">
-                  {formatEGP(item.subtotal)}
-                </p>
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         </div>
 
         <Separator />
 
         <div className="space-y-2 p-6 text-sm">
-          <Row label="Subtotal" value={formatEGP(total)} />
-          <Row label="Shipping" value={formatEGP(shipping)} />
+          <Row label="Subtotal" value={formatEGP(order.subtotal)} />
+          <Row label="Shipping" value={formatEGP(order.shippingCost)} />
           <Separator className="my-2" />
           <Row
             label="Total"
-            value={formatEGP(grandTotal)}
+            value={formatEGP(order.total)}
             className="text-base font-semibold"
           />
         </div>
@@ -97,27 +136,40 @@ export default function OrderConfirmationPage() {
               Shipping to
             </p>
             <p className="mt-1 font-medium">
-              {ADDRESSES[0].city}, {ADDRESSES[0].governorate}
+              {city}
+              {governorate ? `, ${governorate}` : ''}
             </p>
-            <p className="text-muted-foreground">{ADDRESSES[0].street}</p>
+            {street ? (
+              <p className="text-muted-foreground">{street}</p>
+            ) : null}
           </div>
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Payment method
             </p>
-            <p className="mt-1 font-medium">Paymob (online card)</p>
-            <p className="text-muted-foreground">Paid · Confirmed</p>
+            <p className="mt-1 font-medium">
+              {order.paymentMethod === 'PAYMOB'
+                ? 'Paymob (online card)'
+                : 'Cash on Delivery'}
+            </p>
+            <p className="text-muted-foreground">
+              {order.paymentStatus === 'PAID'
+                ? 'Paid · Confirmed'
+                : order.paymentMethod === 'COD'
+                  ? 'Pay on delivery'
+                  : 'Awaiting payment'}
+            </p>
           </div>
         </div>
       </div>
 
       {/* CTAs */}
       <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <Button asChild size="lg">
-          <Link to={`/account/orders/${id || 'ord-demo-1234'}`}>
-            View order
-          </Link>
-        </Button>
+        {isAuthenticated ? (
+          <Button asChild size="lg">
+            <Link to={`/account/orders/${order.id}`}>View order</Link>
+          </Button>
+        ) : null}
         <Button asChild size="lg" variant="outline">
           <Link to="/shop">Keep shopping</Link>
         </Button>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
+  createOrder,
   getAdminOrders,
   getAdminOrder,
   updateOrderStatus,
@@ -8,6 +9,7 @@ import {
   getMyOrder,
   cancelMyOrder,
 } from '@/api/orders'
+import { clearGuestCart } from '@/lib/guestCart'
 
 /**
  * Admin: paginated list of all orders.
@@ -43,6 +45,26 @@ export function useUpdateOrderStatus() {
       qc.invalidateQueries({ queryKey: ['orders'] })
       qc.invalidateQueries({ queryKey: ['order', 'admin', order.id] })
       toast.success(`Order moved to ${order.status.toLowerCase()}`)
+    },
+    onError: (err) => toast.error(err.message),
+  })
+}
+
+/**
+ * Customer / guest: place an order. The server clears the
+ * authenticated user's cart when `clearCart: true` is sent; for
+ * guests we drop the localStorage cart on success here.
+ */
+export function useCreateOrder() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createOrder,
+    onSuccess: (data, variables) => {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      if (variables?.clearCart) {
+        qc.invalidateQueries({ queryKey: ['cart'] })
+        clearGuestCart()
+      }
     },
     onError: (err) => toast.error(err.message),
   })

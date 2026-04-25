@@ -1,13 +1,29 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { ArrowLeft, Check, Package, Truck, XCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  Check,
+  Loader2,
+  Package,
+  Truck,
+  XCircle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from '@/components/common/OrderStatusBadge'
 import { EmptyState } from '@/components/common/EmptyState'
-import { getMyOrderById } from '@/data/orders'
+import { useCancelMyOrder, useMyOrder } from '@/hooks/useOrders'
 import { formatDate, formatEGP, cn } from '@/lib/utils'
 
 const STAGES = [
@@ -27,9 +43,19 @@ const STAGE_INDEX = {
 
 export default function OrderDetailPage() {
   const { id } = useParams()
-  const order = getMyOrderById(id)
+  const { data: order, isLoading, isError } = useMyOrder(id)
+  const cancelOrder = useCancelMyOrder()
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
-  if (!order) {
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (isError || !order) {
     return (
       <EmptyState
         icon={Package}
@@ -49,6 +75,17 @@ export default function OrderDetailPage() {
 
   const cancelled = order.status === 'CANCELLED'
   const current = STAGE_INDEX[order.status] ?? -1
+  const ref = order.orderNumber ? `#${order.orderNumber}` : order.id.slice(0, 8)
+  const canCancel = order.status === 'PENDING'
+
+  const handleCancel = async () => {
+    try {
+      await cancelOrder.mutateAsync(order.id)
+      setConfirmOpen(false)
+    } catch {
+      // toast handled by hook
+    }
+  }
 
   return (
     <div className="space-y-10">
@@ -63,9 +100,7 @@ export default function OrderDetailPage() {
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-display text-2xl font-bold tabular">
-                {order.id}
-              </h2>
+              <h2 className="font-display text-2xl font-bold tabular">{ref}</h2>
               <OrderStatusBadge status={order.status} />
               <PaymentStatusBadge status={order.paymentStatus} />
             </div>
@@ -73,8 +108,12 @@ export default function OrderDetailPage() {
               Placed {formatDate(order.createdAt)}
             </p>
           </div>
-          {!cancelled && ['PENDING', 'CONFIRMED'].includes(order.status) ? (
-            <Button variant="outline" size="sm">
+          {canCancel ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmOpen(true)}
+            >
               <XCircle className="h-4 w-4" />
               Cancel order
             </Button>
@@ -85,7 +124,9 @@ export default function OrderDetailPage() {
       {/* Timeline */}
       {cancelled ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-          <p className="font-medium text-destructive">This order was cancelled.</p>
+          <p className="font-medium text-destructive">
+            This order was cancelled.
+          </p>
           <p className="mt-1 text-destructive/80">
             No further action needed. Any authorized payment has been released.
           </p>
@@ -98,7 +139,10 @@ export default function OrderDetailPage() {
               const active = i === current
               const Icon = s.icon
               return (
-                <div key={s.key} className="flex flex-col items-center text-center">
+                <div
+                  key={s.key}
+                  className="flex flex-col items-center text-center"
+                >
                   <span
                     className={cn(
                       'grid h-10 w-10 place-items-center rounded-full border',
@@ -112,7 +156,9 @@ export default function OrderDetailPage() {
                   <span
                     className={cn(
                       'mt-2 text-[10px] font-semibold uppercase tracking-[0.15em]',
-                      done || active ? 'text-foreground' : 'text-muted-foreground'
+                      done || active
+                        ? 'text-foreground'
+                        : 'text-muted-foreground'
                     )}
                   >
                     {s.label}
@@ -138,26 +184,13 @@ export default function OrderDetailPage() {
         <ul className="mt-4 divide-y">
           {order.items.map((item) => (
             <li key={item.id} className="flex gap-4 py-4 first:pt-0">
-              <Link
-                to={`/product/${item.product.slug}`}
-                className="relative block h-24 w-20 shrink-0 overflow-hidden rounded-md bg-secondary"
-              >
-                <img
-                  src={item.product.imageUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              </Link>
+              <div
+                className="h-20 w-16 shrink-0 rounded-md border"
+                style={{ backgroundColor: item.colorHex || '#f4f4f4' }}
+                aria-hidden
+              />
               <div className="flex-1">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  {item.product.category.name}
-                </p>
-                <Link
-                  to={`/product/${item.product.slug}`}
-                  className="mt-1 block font-medium hover:underline"
-                >
-                  {item.product.name}
-                </Link>
+                <p className="font-medium">{item.colorName}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Size {item.size} · Qty {item.quantity}
                 </p>
@@ -194,9 +227,14 @@ export default function OrderDetailPage() {
           <div className="mt-4 space-y-4 text-sm">
             <div>
               <p className="font-medium">
-                {order.address.city}, {order.address.governorate}
+                {(order.address?.city ?? order.shippingCity) || '—'}
+                {(order.address?.governorate ?? order.shippingGovernorate)
+                  ? `, ${order.address?.governorate ?? order.shippingGovernorate}`
+                  : ''}
               </p>
-              <p className="text-muted-foreground">{order.address.street}</p>
+              <p className="text-muted-foreground">
+                {order.address?.street ?? order.shippingStreet}
+              </p>
             </div>
             <Separator />
             <div>
@@ -225,6 +263,40 @@ export default function OrderDetailPage() {
           </div>
         </section>
       </div>
+
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(v) => !cancelOrder.isPending && setConfirmOpen(v)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel this order?</DialogTitle>
+            <DialogDescription>
+              We'll release the held stock immediately. This can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={cancelOrder.isPending}
+            >
+              Keep order
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancel}
+              disabled={cancelOrder.isPending}
+            >
+              {cancelOrder.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Cancel order'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

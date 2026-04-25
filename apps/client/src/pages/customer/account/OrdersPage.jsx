@@ -1,16 +1,24 @@
 import { Link } from 'react-router'
-import { ArrowRight, Package } from 'lucide-react'
+import { ArrowRight, Loader2, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/common/EmptyState'
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from '@/components/common/OrderStatusBadge'
-import { MY_ORDERS } from '@/data/orders'
+import { useMyOrders } from '@/hooks/useOrders'
 import { formatDate, formatEGP } from '@/lib/utils'
 
 export default function OrdersPage() {
-  const orders = MY_ORDERS
+  const { data: orders = [], isLoading } = useMyOrders()
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
   if (orders.length === 0) {
     return (
@@ -39,55 +47,65 @@ export default function OrdersPage() {
       </div>
 
       <ul className="mt-6 space-y-4">
-        {orders.map((o) => (
-          <li key={o.id}>
-            <Link
-              to={`/account/orders/${o.id}`}
-              className="group block rounded-lg border p-5 transition-colors hover:border-foreground"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold tabular">{o.id}</p>
-                    <OrderStatusBadge status={o.status} />
-                    <PaymentStatusBadge status={o.paymentStatus} />
+        {orders.map((o) => {
+          const ref = o.orderNumber ? `#${o.orderNumber}` : o.id.slice(0, 8)
+          return (
+            <li key={o.id}>
+              <Link
+                to={`/account/orders/${o.id}`}
+                className="group block rounded-lg border p-5 transition-colors hover:border-foreground"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold tabular">{ref}</p>
+                      <OrderStatusBadge status={o.status} />
+                      <PaymentStatusBadge status={o.paymentStatus} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Placed {formatDate(o.createdAt)} · {o.items.length}{' '}
+                      {o.items.length === 1 ? 'item' : 'items'} ·{' '}
+                      {o.paymentMethod === 'PAYMOB'
+                        ? 'Paymob'
+                        : 'Cash on Delivery'}
+                    </p>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Placed {formatDate(o.createdAt)} ·{' '}
-                    {o.items.length} {o.items.length === 1 ? 'item' : 'items'} ·{' '}
-                    {o.paymentMethod === 'PAYMOB'
-                      ? 'Paymob'
-                      : 'Cash on Delivery'}
-                  </p>
+                  <div className="flex items-center gap-6">
+                    <p className="font-semibold tabular">
+                      {formatEGP(o.total)}
+                    </p>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                  </div>
                 </div>
-                <div className="flex items-center gap-6">
-                  <p className="font-semibold tabular">{formatEGP(o.total)}</p>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </div>
-              </div>
 
-              <div className="mt-4 flex items-center gap-2">
-                {o.items.slice(0, 4).map((item) => (
-                  <div
-                    key={item.id}
-                    className="relative h-14 w-11 shrink-0 overflow-hidden rounded-md bg-secondary"
-                  >
-                    <img
-                      src={item.product.imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ))}
-                {o.items.length > 4 ? (
-                  <div className="grid h-14 w-11 shrink-0 place-items-center rounded-md border text-xs text-muted-foreground">
-                    +{o.items.length - 4}
-                  </div>
-                ) : null}
-              </div>
-            </Link>
-          </li>
-        ))}
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {o.items.slice(0, 4).map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full border"
+                        style={{
+                          backgroundColor: item.colorHex || '#e5e5e5',
+                        }}
+                        aria-hidden
+                      />
+                      <span className="text-muted-foreground">
+                        {item.colorName} · {item.size} × {item.quantity}
+                      </span>
+                    </div>
+                  ))}
+                  {o.items.length > 4 ? (
+                    <span className="text-xs text-muted-foreground">
+                      +{o.items.length - 4} more
+                    </span>
+                  ) : null}
+                </div>
+              </Link>
+            </li>
+          )
+        })}
       </ul>
     </div>
   )

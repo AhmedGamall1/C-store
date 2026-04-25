@@ -1,6 +1,17 @@
 import { api } from '@/lib/api'
 
 /**
+ * POST /api/orders
+ * Works for both authenticated users (addressId) and guests
+ * (guest + shippingAddress). Returns the created order, plus an
+ * iframeUrl when paymentMethod=PAYMOB.
+ */
+export async function createOrder(payload) {
+  const res = await api.post('/orders', payload)
+  return res.data
+}
+
+/**
  * GET /api/orders/admin?page=&limit=&status=&paymentStatus=&paymentMethod=&q=
  * Admin-only. Returns { orders, pagination }.
  */

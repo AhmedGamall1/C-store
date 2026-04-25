@@ -26,22 +26,29 @@ export function OrderSummary({ items, shipping = 0, className }) {
         {items.map((item) => (
           <li key={item.id} className="flex gap-3">
             <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-md bg-background">
-              <img
-                src={item.product.imageUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
+              {item.imageUrl ? (
+                <img
+                  src={item.imageUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : null}
               <span className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background">
                 {item.quantity}
               </span>
             </div>
             <div className="flex-1 text-sm">
               <p className="line-clamp-1 font-medium">{item.product.name}</p>
+              {item.color?.name || item.size ? (
+                <p className="text-xs text-muted-foreground">
+                  {[item.color?.name, item.size && `Size ${item.size}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              ) : null}
             </div>
             <p className="text-sm font-semibold tabular">
-              {formatEGP(
-                item.subtotal ?? Number(item.product.price) * item.quantity
-              )}
+              {formatEGP(item.subtotal ?? item.unitPrice * item.quantity)}
             </p>
           </li>
         ))}
