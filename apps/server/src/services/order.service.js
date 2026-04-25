@@ -57,7 +57,7 @@ export const createOrder = async (user, body) => {
 
   // --- address / governorate resolution (unchanged) ---
   let shippingSnapshot = null
-  let shippingGovernorate
+  let shippingGovernorate // for shipping cost lookup
 
   if (user) {
     if (!body.addressId) throw new AppError('addressId is required', 400)
@@ -70,11 +70,8 @@ export const createOrder = async (user, body) => {
     shippingGovernorate = savedAddress.governorate
   } else {
     const { guest, shippingAddress } = body
-    if (!guest?.email || !guest?.name || !guest?.phone) {
-      throw new AppError(
-        'Guest contact info (email, name, phone) is required',
-        400
-      )
+    if (!guest?.name || !guest?.phone) {
+      throw new AppError('Guest contact info (name, phone) is required', 400)
     }
     if (
       !shippingAddress?.street ||
@@ -100,6 +97,12 @@ export const createOrder = async (user, body) => {
 
   // --- variant lookup + validation ---
   const sizeIds = items.map((i) => i.productSizeId)
+
+  // want to check that every item in sizeid array is exist
+  if (sizeIds.some((id) => !id)) {
+    throw new AppError('Each item must have a valid productSizeId', 400)
+  }
+
   const sizes = await prisma.productSize.findMany({
     where: { id: { in: sizeIds } },
     include: sizeLookupInclude,
