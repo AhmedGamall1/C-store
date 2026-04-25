@@ -43,3 +43,15 @@ export const deleteSize = async (req, res) => {
   await variantService.deleteSize(req.params.sizeId)
   res.status(204).send()
 }
+
+// GET /api/variants/bulk?ids=uuid1,uuid2,...
+export const getVariantsBulk = async (req, res) => {
+  const raw = (req.query.ids || '').toString()
+  const ids = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const variants = await variantService.getVariantsBulk(ids)
+  res.json({ status: 'success', data: { variants } })
+}

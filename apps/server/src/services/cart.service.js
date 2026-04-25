@@ -167,3 +167,65 @@ export const clearCart = async (userId) => {
 
   return getCart(userId)
 }
+
+// Merge a client-held guest cart (items from localStorage) into the user's DB cart.
+export const mergeGuestCart = async (userId, items) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return getCart(userId)
+  }
+
+  // Normalize + de-duplicate incoming items (client might send dupes)
+  const incoming = new Map()
+  for (const raw of items) {
+    const productSizeId = raw?.productSizeId
+    const qty = Number(raw?.quantity)
+    if (!productSizeId || !qty || qty < 1) continue
+    incoming.set(productSizeId, (incoming.get(productSizeId) ?? 0) + qty)
+  }
+  if (incoming.size === 0) return getCart(userId)
+
+  // Pull current stock/active state for all incoming ids in one shot
+  const sizes = await prisma.productSize.findMany({
+    where: { id: { in: [...incoming.keys()] } },
+    include: {
+      color: { include: { product: { select: { isActive: true } } } },
+    },
+  })
+  const sizeById = new Map(sizes.map((s) => [s.id, s]))
+
+  const userCart = await prisma.cart.upsert({
+    where: { userId },
+    update: {},
+    create: { userId },
+  })
+
+  await prisma.$transaction(async (tx) => {
+    for (const [productSizeId, addQty] of incoming) {
+      const size = sizeById.get(productSizeId)
+      if (!size) continue // variant deleted
+      if (
+        !size.isActive ||
+        !size.color.isActive ||
+        !size.color.product.isActive
+      )
+        continue
+      if (size.stock < 1) continue
+
+      const existing = await tx.cartItem.findUnique({
+        where: { cartId_productSizeId: { cartId: userCart.id, productSizeId } },
+      })
+
+      const desired = (existing?.quantity ?? 0) + addQty
+      const clamped = Math.min(desired, size.stock)
+      if (clamped < 1) continue
+
+      await tx.cartItem.upsert({
+        where: { cartId_productSizeId: { cartId: userCart.id, productSizeId } },
+        update: { quantity: clamped },
+        create: { cartId: userCart.id, productSizeId, quantity: clamped },
+      })
+    }
+  })
+
+  return getCart(userId)
+}

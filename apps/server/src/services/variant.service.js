@@ -301,3 +301,42 @@ export const deleteSize = async (sizeId) => {
     prisma.productSize.delete({ where: { id: sizeId } }),
   ])
 }
+
+// Bulk public lookup for cart rendering + guest-cart validation.
+// Returns one row per found productSize; missing ids are simply absent.
+export const getVariantsBulk = async (ids) => {
+  if (!Array.isArray(ids) || ids.length === 0) return []
+
+  const sizes = await prisma.productSize.findMany({
+    where: { id: { in: ids } },
+    include: {
+      color: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              price: true,
+              isActive: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  return sizes.map((s) => ({
+    id: s.id,
+    size: s.size,
+    stock: s.stock,
+    isActive: s.isActive && s.color.isActive && s.color.product.isActive,
+    price: Number(s.price ?? s.color.product.price),
+    productId: s.color.product.id,
+    productName: s.color.product.name,
+    productSlug: s.color.product.slug,
+    colorId: s.color.id,
+    colorName: s.color.name,
+    colorImage: s.color.imageUrl,
+  }))
+}

@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser'
 import authRoutes from './routes/auth.routes.js'
 import categoryRoutes from './routes/category.routes.js'
 import productRoutes from './routes/product.routes.js'
+import variantRoutes from './routes/variant.routes.js'
 import cartRoutes from './routes/cart.routes.js'
 import shippingRoutes from './routes/shipping.routes.js'
 import orderRoutes from './routes/order.routes.js'
@@ -36,6 +37,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use('/api/auth', authRoutes)
 app.use('/api/categories', categoryRoutes)
 app.use('/api/products', productRoutes)
+app.use('/api/variants', variantRoutes)
 app.use('/api/cart', cartRoutes)
 app.use('/api/shipping', shippingRoutes)
 app.use('/api/orders', orderRoutes)

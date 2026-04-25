@@ -36,3 +36,9 @@ export const clearCart = async (req, res) => {
   const cart = await cartService.clearCart(req.user.id)
   res.json({ status: 'success', data: { cart } })
 }
+
+// POST /api/cart/merge — body: { items: [{ productSizeId, quantity }] }
+export const mergeCart = async (req, res) => {
+  const cart = await cartService.mergeGuestCart(req.user.id, req.body.items)
+  res.json({ status: 'success', data: { cart } })
+}
