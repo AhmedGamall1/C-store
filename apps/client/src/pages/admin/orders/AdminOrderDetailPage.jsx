@@ -1,8 +1,8 @@
 import { Link, useParams, useNavigate } from 'react-router'
-import { ArrowLeft, Printer, Save } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Loader2, Package, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -16,16 +16,15 @@ import {
   PaymentStatusBadge,
 } from '@/components/common/OrderStatusBadge'
 import { EmptyState } from '@/components/common/EmptyState'
-import { Package } from 'lucide-react'
-import { getOrderById } from '@/data/orders'
+import { useAdminOrder, useUpdateOrderStatus } from '@/hooks/useOrders'
 import { formatDate, formatEGP, cn } from '@/lib/utils'
 
-// Valid next statuses per backend state machine
+// Mirrors backend VALID_TRANSITIONS in apps/server/src/services/order.service.js
 const TRANSITIONS = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['PROCESSING', 'CANCELLED'],
   PROCESSING: ['SHIPPED', 'CANCELLED'],
-  SHIPPED: ['DELIVERED'],
+  SHIPPED: ['DELIVERED', 'CANCELLED'],
   DELIVERED: [],
   CANCELLED: [],
 }
@@ -33,9 +32,19 @@ const TRANSITIONS = {
 export default function AdminOrderDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const order = getOrderById(id)
+  const { data: order, isLoading, isError } = useAdminOrder(id)
+  const updateStatus = useUpdateOrderStatus()
+  const [nextStatus, setNextStatus] = useState('')
 
-  if (!order) {
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (isError || !order) {
     return (
       <EmptyState
         icon={Package}
@@ -56,7 +65,25 @@ export default function AdminOrderDetailPage() {
   const nextStatuses = TRANSITIONS[order.status] ?? []
   const customer = order.user
     ? `${order.user.firstName} ${order.user.lastName}`
-    : 'Customer'
+    : (order.guestName ?? 'Guest customer')
+  const email = order.user?.email ?? order.guestEmail ?? ''
+  const phone = order.guestPhone
+
+  const ref = `#${order.orderNumber ?? order.id.slice(0, 8)}`
+
+  // Address: saved address for users, snapshot fields for guests
+  const street = order.address?.street ?? order.shippingStreet
+  const city = order.address?.city ?? order.shippingCity
+  const governorate = order.address?.governorate ?? order.shippingGovernorate
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!nextStatus) return
+    updateStatus.mutate(
+      { id: order.id, status: nextStatus },
+      { onSuccess: () => setNextStatus('') }
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -72,19 +99,16 @@ export default function AdminOrderDetailPage() {
           </button>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <h1 className="font-display text-3xl font-bold tracking-tight tabular">
-              {order.id}
+              {ref}
             </h1>
             <OrderStatusBadge status={order.status} />
             <PaymentStatusBadge status={order.paymentStatus} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Placed {formatDate(order.createdAt)} · {customer}
+            {!order.user ? ' (guest)' : ''}
           </p>
         </div>
-        <Button variant="outline">
-          <Printer className="h-4 w-4" />
-          Print invoice
-        </Button>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -95,20 +119,15 @@ export default function AdminOrderDetailPage() {
             <ul className="divide-y">
               {order.items.map((item) => (
                 <li key={item.id} className="flex gap-4 py-4 first:pt-0">
-                  <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
-                    <img
-                      src={item.product.imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
+                  <div
+                    className="h-10 w-10 shrink-0 rounded-md border"
+                    style={{ backgroundColor: item.colorHex || '#e5e5e5' }}
+                    aria-hidden
+                  />
                   <div className="flex-1">
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                      {item.product.category.name}
-                    </p>
-                    <p className="mt-1 font-medium">{item.product.name}</p>
+                    <p className="font-medium">{item.colorName}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Size {item.size} · SKU {item.product.sku}
+                      Size {item.size} · Qty {item.quantity}
                     </p>
                   </div>
                   <div className="text-right">
@@ -137,21 +156,11 @@ export default function AdminOrderDetailPage() {
             </dl>
           </Panel>
 
-          {/* Internal notes */}
-          <Panel
-            title="Internal notes"
-            subtitle="Only visible to admins"
-          >
-            <Textarea
-              rows={3}
-              placeholder="Add a note about this order…"
-            />
-            <div className="mt-3 flex justify-end">
-              <Button size="sm" variant="outline">
-                Save note
-              </Button>
-            </div>
-          </Panel>
+          {order.notes ? (
+            <Panel title="Customer notes">
+              <p className="text-sm text-muted-foreground">{order.notes}</p>
+            </Panel>
+          ) : null}
         </div>
 
         {/* Sidebar */}
@@ -164,14 +173,14 @@ export default function AdminOrderDetailPage() {
                 allowed.
               </p>
             ) : (
-              <form
-                onSubmit={(e) => e.preventDefault()}
-                className="grid gap-3"
-              >
+              <form onSubmit={handleSubmit} className="grid gap-3">
                 <Label htmlFor="new-status">Move to</Label>
-                <Select defaultValue={nextStatuses[0]}>
+                <Select
+                  value={nextStatus}
+                  onValueChange={setNextStatus}
+                >
                   <SelectTrigger id="new-status">
-                    <SelectValue />
+                    <SelectValue placeholder="Select new status" />
                   </SelectTrigger>
                   <SelectContent>
                     {nextStatuses.map((s) => (
@@ -181,8 +190,16 @@ export default function AdminOrderDetailPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button type="submit" size="sm">
-                  <Save className="h-4 w-4" />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!nextStatus || updateStatus.isPending}
+                >
+                  {updateStatus.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   Update status
                 </Button>
               </form>
@@ -191,32 +208,36 @@ export default function AdminOrderDetailPage() {
 
           {/* Customer */}
           <Panel title="Customer" compact>
-            {order.user ? (
-              <div className="space-y-1 text-sm">
-                <p className="font-medium">{customer}</p>
-                <p className="text-muted-foreground">{order.user.email}</p>
-                <p className="pt-2 text-xs">
-                  <Link
-                    to={`/admin/customers/${order.user.id}`}
-                    className="text-foreground underline underline-offset-4 hover:no-underline"
-                  >
-                    View customer
-                  </Link>
+            <div className="space-y-1 text-sm">
+              <p className="font-medium">{customer}</p>
+              {email ? (
+                <p className="text-muted-foreground">{email}</p>
+              ) : null}
+              {phone ? (
+                <p className="text-muted-foreground">{phone}</p>
+              ) : null}
+              {!order.user ? (
+                <p className="pt-2 text-xs uppercase tracking-wider text-muted-foreground">
+                  Guest checkout
                 </p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">You</p>
-            )}
+              ) : null}
+            </div>
           </Panel>
 
           {/* Shipping */}
           <Panel title="Shipping address" compact>
-            <p className="font-medium">
-              {order.address.city}, {order.address.governorate}
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {order.address.street}
-            </p>
+            {street || city || governorate ? (
+              <>
+                <p className="font-medium">
+                  {[city, governorate].filter(Boolean).join(', ')}
+                </p>
+                {street ? (
+                  <p className="mt-1 text-sm text-muted-foreground">{street}</p>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">No address on file</p>
+            )}
           </Panel>
 
           {/* Payment */}
