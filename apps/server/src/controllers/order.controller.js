@@ -54,6 +54,12 @@ export const getAllOrders = async (req, res) => {
   })
 }
 
+// GET /api/orders/admin/:id  (admin only)
+export const getOrderByIdAdmin = async (req, res) => {
+  const order = await orderService.getOrderByIdAdmin(req.params.id)
+  res.json({ status: 'success', data: { order } })
+}
+
 // PATCH /api/orders/:id/status  (admin only)
 export const updateOrderStatus = async (req, res) => {
   const { status } = req.body

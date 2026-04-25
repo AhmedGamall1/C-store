@@ -5,6 +5,7 @@ import {
   getAllOrders,
   getMyOrders,
   getOrderById,
+  getOrderByIdAdmin,
   updateOrderStatus,
 } from '../controllers/order.controller.js'
 import {
@@ -23,6 +24,7 @@ router.use(protect)
 router.get('/', getMyOrders)
 
 router.get('/admin', restrictTo('ADMIN'), getAllOrders)
+router.get('/admin/:id', restrictTo('ADMIN'), getOrderByIdAdmin)
 
 router.get('/:id', getOrderById)
 router.patch('/:id/cancel', cancelOrder)

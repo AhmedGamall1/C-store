@@ -225,7 +225,7 @@ export const getOrderById = async (userId, orderId) => {
   return order
 }
 
-// cancel order — restore stock on the SIZE rows
+// cancel order — restore stock on the SIZE rows (not supported yet)
 export const cancelOrder = async (userId, orderId) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -273,13 +273,20 @@ const VALID_TRANSITIONS = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['PROCESSING', 'CANCELLED'],
   PROCESSING: ['SHIPPED', 'CANCELLED'],
-  SHIPPED: ['DELIVERED'],
+  SHIPPED: ['DELIVERED', 'CANCELLED'],
   DELIVERED: [],
   CANCELLED: [],
 }
 
 export const getAllOrders = async (query) => {
-  const { page = 1, limit = 20, status, paymentStatus, paymentMethod } = query
+  const {
+    page = 1,
+    limit = 20,
+    status,
+    paymentStatus,
+    paymentMethod,
+    q,
+  } = query
   const skip = (Number(page) - 1) * Number(limit)
   const take = Number(limit)
 
@@ -287,6 +294,23 @@ export const getAllOrders = async (query) => {
   if (status) where.status = status
   if (paymentStatus) where.paymentStatus = paymentStatus
   if (paymentMethod) where.paymentMethod = paymentMethod
+
+  // Free-text search across order number, guest contact, and user contact
+  if (q) {
+    const term = String(q).trim()
+    if (term) {
+      const asNumber = Number(term)
+      where.OR = [
+        { guestName: { contains: term, mode: 'insensitive' } },
+        { guestEmail: { contains: term, mode: 'insensitive' } },
+        { guestPhone: { contains: term, mode: 'insensitive' } },
+        { user: { firstName: { contains: term, mode: 'insensitive' } } },
+        { user: { lastName: { contains: term, mode: 'insensitive' } } },
+        { user: { email: { contains: term, mode: 'insensitive' } } },
+        ...(Number.isFinite(asNumber) ? [{ orderNumber: asNumber }] : []),
+      ]
+    }
+  }
 
   const [orders, total] = await prisma.$transaction([
     prisma.order.findMany({
@@ -315,6 +339,20 @@ export const getAllOrders = async (query) => {
       hasPrevPage: Number(page) > 1,
     },
   }
+}
+
+export const getOrderByIdAdmin = async (orderId) => {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      ...orderInclude,
+      user: {
+        select: { id: true, firstName: true, lastName: true, email: true },
+      },
+    },
+  })
+  if (!order) throw new AppError('Order not found', 404)
+  return order
 }
 
 export const updateOrderStatus = async (orderId, newStatus) => {
