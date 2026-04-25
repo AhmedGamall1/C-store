@@ -66,8 +66,8 @@ export default function AdminOrderDetailPage() {
   const customer = order.user
     ? `${order.user.firstName} ${order.user.lastName}`
     : (order.guestName ?? 'Guest customer')
-  const email = order.user?.email ?? order.guestEmail ?? ''
-  const phone = order.guestPhone
+  const email = order.user?.email
+  const phone = order.user?.phone ?? order.guestPhone
 
   const ref = `#${order.orderNumber ?? order.id.slice(0, 8)}`
 
@@ -117,29 +117,39 @@ export default function AdminOrderDetailPage() {
           {/* Items */}
           <Panel title="Items" subtitle={`${order.items.length} line items`}>
             <ul className="divide-y">
-              {order.items.map((item) => (
-                <li key={item.id} className="flex gap-4 py-4 first:pt-0">
-                  <div
-                    className="h-10 w-10 shrink-0 rounded-md border"
-                    style={{ backgroundColor: item.colorHex || '#e5e5e5' }}
-                    aria-hidden
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium">{item.colorName}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Size {item.size} · Qty {item.quantity}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm tabular">
-                      {formatEGP(item.price)} × {item.quantity}
-                    </p>
-                    <p className="mt-1 font-semibold tabular">
-                      {formatEGP(Number(item.price) * item.quantity)}
-                    </p>
-                  </div>
-                </li>
-              ))}
+              {order.items.map((item) => {
+                const product = item.productSize?.color?.product
+                const imageUrl = item.productSize?.color?.imageUrl
+                return (
+                  <li key={item.id} className="flex gap-4 py-4 first:pt-0">
+                    <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md bg-secondary">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">
+                        {product?.name ?? item.colorName}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.colorName} · Size {item.size} · Qty {item.quantity}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm tabular">
+                        {formatEGP(item.price)} × {item.quantity}
+                      </p>
+                      <p className="mt-1 font-semibold tabular">
+                        {formatEGP(Number(item.price) * item.quantity)}
+                      </p>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
 
             <Separator className="my-4" />
@@ -210,7 +220,7 @@ export default function AdminOrderDetailPage() {
           <Panel title="Customer" compact>
             <div className="space-y-1 text-sm">
               <p className="font-medium">{customer}</p>
-              {email ? (
+              {order.user && email ? (
                 <p className="text-muted-foreground">{email}</p>
               ) : null}
               {phone ? (

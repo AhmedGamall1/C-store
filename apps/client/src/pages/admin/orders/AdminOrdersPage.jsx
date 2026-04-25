@@ -188,8 +188,8 @@ export default function AdminOrdersPage() {
                 const name = o.user
                   ? `${o.user.firstName} ${o.user.lastName}`
                   : (o.guestName ?? '—')
-                const email = o.user?.email ?? o.guestEmail ?? ''
                 const ref = `#${o.orderNumber ?? o.id.slice(0, 8)}`
+                const phone = o.user?.phone ?? o.guestPhone
                 return (
                   <TableRow key={o.id}>
                     <TableCell>
@@ -207,7 +207,22 @@ export default function AdminOrdersPage() {
                     </TableCell>
                     <TableCell>
                       <p className="text-sm font-medium">{name}</p>
-                      <p className="text-xs text-muted-foreground">{email}</p>
+                      {o.user ? (
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            {o.user.email}
+                          </p>
+                          {phone ? (
+                            <p className="text-xs text-muted-foreground">
+                              {phone}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : phone ? (
+                        <p className="text-xs text-muted-foreground">
+                          {phone}
+                        </p>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <OrderStatusBadge status={o.status} />
