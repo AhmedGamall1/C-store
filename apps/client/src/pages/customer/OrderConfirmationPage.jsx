@@ -11,8 +11,15 @@ export default function OrderConfirmationPage() {
   const location = useLocation()
   const { isAuthenticated } = useAuth()
 
-  // Order pushed via navigate state on placement (works for guests too)
+  // Order pushed via navigate state on placement (works for guests too).
+  // We also receive a lineSnapshots map captured from the cart pre-clear,
+  // so we can show real product imagery (the order response only carries
+  // OrderItem snapshot fields).
   const stateOrder = location.state?.order ?? null
+  const lineSnapshots = location.state?.lineSnapshots ?? []
+  const snapshotById = Object.fromEntries(
+    lineSnapshots.map((s) => [s.productSizeId, s])
+  )
 
   // Authenticated users can refetch on reload; guests rely on state.
   const { data: fetched, isLoading } = useMyOrder(
@@ -93,17 +100,31 @@ export default function OrderConfirmationPage() {
           <ul className="mt-5 space-y-4">
             {order.items.map((item) => {
               const lineTotal = Number(item.price) * item.quantity
+              const snap = snapshotById[item.productSizeId]
+              const title = snap?.productName ?? item.colorName
               return (
-                <li key={item.id} className="flex gap-4">
-                  <div
-                    className="h-16 w-12 shrink-0 rounded-md border"
-                    style={{ backgroundColor: item.colorHex || '#f4f4f4' }}
-                    aria-hidden
-                  />
+                <li key={item.id} className="flex items-start gap-4">
+                  <div className="aspect-product w-14 shrink-0 overflow-hidden rounded-md border bg-secondary">
+                    {snap?.imageUrl ? (
+                      <img
+                        src={snap.imageUrl}
+                        alt={title}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="h-full w-full"
+                        style={{ backgroundColor: item.colorHex || '#f4f4f4' }}
+                        aria-hidden
+                      />
+                    )}
+                  </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{item.colorName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Size {item.size} · Qty {item.quantity}
+                    <p className="text-sm font-medium">{title}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {item.colorName} · Size {item.size} · Qty {item.quantity}
                     </p>
                   </div>
                   <p className="text-sm font-semibold tabular">

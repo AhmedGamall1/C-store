@@ -12,7 +12,7 @@ export function CheckoutSteps({ steps, current }) {
             <div className="flex items-center gap-2">
               <span
                 className={cn(
-                  'grid h-7 w-7 place-items-center rounded-full border text-xs font-semibold tabular',
+                  'grid h-7 w-7 place-items-center rounded-full border-[1.5px] text-xs font-semibold tabular',
                   done && 'border-foreground bg-foreground text-background',
                   active && !done && 'border-foreground text-foreground',
                   !active && !done && 'border-border text-muted-foreground'
@@ -23,7 +23,7 @@ export function CheckoutSteps({ steps, current }) {
               <span
                 className={cn(
                   'hidden text-xs font-semibold uppercase tracking-[0.15em] sm:inline',
-                  (active || done) ? 'text-foreground' : 'text-muted-foreground'
+                  active || done ? 'text-foreground' : 'text-muted-foreground'
                 )}
               >
                 {label}

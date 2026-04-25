@@ -36,6 +36,11 @@ import { useMyAddresses } from '@/hooks/useAddresses'
 import { useShippingRates } from '@/hooks/useShipping'
 import { useCreateOrder } from '@/hooks/useOrders'
 import { GOVERNORATES } from '@/data/user'
+import {
+  EGYPT_PHONE_HINT,
+  isValidEgyptPhone,
+  normalizeEgyptPhone,
+} from '@/lib/validation/phone'
 import { cn, formatEGP } from '@/lib/utils'
 
 const STEPS = ['Details', 'Payment', 'Review']
@@ -58,12 +63,18 @@ export default function CheckoutPage() {
   const [addrDialogOpen, setAddrDialogOpen] = useState(false)
 
   // Guest: contact info + freeform shipping address
-  const [guest, setGuest] = useState({ name: '', phone: '', email: '' })
+  const [guest, setGuest] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: '',
+  })
   const [guestAddress, setGuestAddress] = useState({
     street: '',
     city: '',
     governorate: '',
   })
+  const [phoneTouched, setPhoneTouched] = useState(false)
 
   const [paymentMethod, setPaymentMethod] = useState('COD')
   const [notes, setNotes] = useState('')
@@ -101,11 +112,14 @@ export default function CheckoutPage() {
     (i) => !i.isActive || i.quantity > i.stock
   )
 
+  const phoneValid = !isAuthenticated && isValidEgyptPhone(guest.phone)
+
   const detailsValid = isAuthenticated
     ? Boolean(selectedAddressId && shippingCost != null)
     : Boolean(
-        guest.name.trim() &&
-          guest.phone.trim() &&
+        guest.firstName.trim() &&
+          guest.lastName.trim() &&
+          phoneValid &&
           guestAddress.street.trim() &&
           guestAddress.city.trim() &&
           guestAddress.governorate &&
@@ -139,8 +153,8 @@ export default function CheckoutPage() {
       payload.addressId = selectedAddressId
     } else {
       payload.guest = {
-        name: guest.name.trim(),
-        phone: guest.phone.trim(),
+        name: `${guest.firstName.trim()} ${guest.lastName.trim()}`,
+        phone: normalizeEgyptPhone(guest.phone),
         ...(guest.email.trim() && { email: guest.email.trim() }),
       }
       payload.shippingAddress = {
@@ -150,11 +164,21 @@ export default function CheckoutPage() {
       }
     }
 
+    // Snapshot product imagery / names from the cart so the success page
+    // can render real images. The order response only carries the OrderItem
+    // snapshot fields (color, size, price) — no product join.
+    const lineSnapshots = cart.items.map((i) => ({
+      productSizeId: i.productSizeId,
+      imageUrl: i.imageUrl,
+      productName: i.product?.name,
+      productSlug: i.product?.slug,
+    }))
+
     try {
       const data = await createOrder.mutateAsync(payload)
       navigate(`/order/success/${data.order.id}`, {
         replace: true,
-        state: { order: data.order },
+        state: { order: data.order, lineSnapshots },
       })
     } catch {
       // error toast handled in hook
@@ -226,6 +250,9 @@ export default function CheckoutPage() {
                 shippingMissing={
                   Boolean(guestAddress.governorate) && shippingCost == null
                 }
+                phoneTouched={phoneTouched}
+                onPhoneBlur={() => setPhoneTouched(true)}
+                phoneValid={phoneValid}
               />
             )
           ) : null}
@@ -394,7 +421,12 @@ function GuestDetailsStep({
   onAddress,
   shippingCost,
   shippingMissing,
+  phoneTouched,
+  onPhoneBlur,
+  phoneValid,
 }) {
+  const showPhoneError = phoneTouched && guest.phone.trim() && !phoneValid
+
   return (
     <section className="space-y-8">
       <div>
@@ -405,24 +437,52 @@ function GuestDetailsStep({
         />
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
-            <Label htmlFor="g-name">Full name</Label>
+            <Label htmlFor="g-first">First name</Label>
             <Input
-              id="g-name"
+              id="g-first"
               required
-              value={guest.name}
-              onChange={(e) => onGuest({ ...guest, name: e.target.value })}
+              autoComplete="given-name"
+              value={guest.firstName}
+              onChange={(e) =>
+                onGuest({ ...guest, firstName: e.target.value })
+              }
             />
           </div>
           <div className="grid gap-2">
+            <Label htmlFor="g-last">Last name</Label>
+            <Input
+              id="g-last"
+              required
+              autoComplete="family-name"
+              value={guest.lastName}
+              onChange={(e) =>
+                onGuest({ ...guest, lastName: e.target.value })
+              }
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="g-phone">Phone</Label>
             <Input
               id="g-phone"
               type="tel"
               required
+              inputMode="tel"
+              autoComplete="tel"
               value={guest.phone}
               onChange={(e) => onGuest({ ...guest, phone: e.target.value })}
-              placeholder="+20 ..."
+              onBlur={onPhoneBlur}
+              placeholder="01012345678"
+              aria-invalid={showPhoneError || undefined}
+              className={cn(showPhoneError && 'border-destructive')}
             />
+            <p
+              className={cn(
+                'text-xs',
+                showPhoneError ? 'text-destructive' : 'text-muted-foreground'
+              )}
+            >
+              {EGYPT_PHONE_HINT}
+            </p>
           </div>
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="g-email">
@@ -434,6 +494,7 @@ function GuestDetailsStep({
             <Input
               id="g-email"
               type="email"
+              autoComplete="email"
               value={guest.email}
               onChange={(e) => onGuest({ ...guest, email: e.target.value })}
             />
@@ -642,7 +703,9 @@ function ReviewStep({
 
       {!isAuthenticated ? (
         <ReviewSection title="Contact">
-          <p className="font-medium">{guest.name}</p>
+          <p className="font-medium">
+            {`${guest.firstName} ${guest.lastName}`.trim()}
+          </p>
           <p className="text-sm text-muted-foreground">{guest.phone}</p>
           {guest.email ? (
             <p className="text-sm text-muted-foreground">{guest.email}</p>

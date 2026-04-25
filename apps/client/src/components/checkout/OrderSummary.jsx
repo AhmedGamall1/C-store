@@ -24,23 +24,29 @@ export function OrderSummary({ items, shipping = 0, className }) {
 
       <ul className="mt-5 space-y-4">
         {items.map((item) => (
-          <li key={item.id} className="flex gap-3">
-            <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-md bg-background">
-              {item.imageUrl ? (
-                <img
-                  src={item.imageUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : null}
-              <span className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-foreground text-[10px] font-semibold text-background">
+          <li key={item.id} className="flex items-start gap-3">
+            <div className="relative shrink-0">
+              <div className="aspect-product w-14 overflow-hidden rounded-md border bg-background">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.product.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-secondary" />
+                )}
+              </div>
+              <span className="absolute -right-1.5 -top-1.5 grid min-w-5 h-5 place-items-center rounded-full bg-foreground px-1 text-[10px] font-semibold tabular text-background ring-2 ring-background">
                 {item.quantity}
               </span>
             </div>
             <div className="flex-1 text-sm">
-              <p className="line-clamp-1 font-medium">{item.product.name}</p>
+              <p className="line-clamp-2 font-medium">{item.product.name}</p>
               {item.color?.name || item.size ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {[item.color?.name, item.size && `Size ${item.size}`]
                     .filter(Boolean)
                     .join(' · ')}
