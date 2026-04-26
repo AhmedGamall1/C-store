@@ -3,7 +3,6 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
-import dotenv from 'dotenv'
 import cookieParser from 'cookie-parser'
 import authRoutes from './routes/auth.routes.js'
 import categoryRoutes from './routes/category.routes.js'
@@ -15,23 +14,36 @@ import orderRoutes from './routes/order.routes.js'
 import addressRoutes from './routes/address.routes.js'
 import paymobRoutes from './routes/paymob.routes.js'
 import { startStockExpiryJob } from './jobs/stockExpiry.job.js'
-
-dotenv.config({ path: '../../.env' })
+import {
+  generalLimiter,
+  authLimiter,
+} from './middlewares/rateLimit.middleware.js'
 
 const app = express()
 
-// Middlewares
+app.set('trust proxy', 1)
+
+// Security headers
 app.use(helmet())
+
+// CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: env.CLIENT_URL,
     credentials: true,
   })
 )
-app.use(morgan('dev'))
+
+// Access logs
+app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'))
+
 app.use(cookieParser())
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: '100kb' }))
+app.use(express.urlencoded({ extended: true, limit: '100kb' }))
+
+// Rate limiting
+app.use('/api', generalLimiter)
+app.use('/api/auth', authLimiter)
 
 // Routes
 app.use('/api/auth', authRoutes)
@@ -49,7 +61,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     message: 'C-Store API is running',
-    environment: process.env.NODE_ENV,
+    environment: env.NODE_ENV,
     timestamp: new Date().toISOString(),
   })
 })
@@ -68,7 +80,7 @@ app.use((err, req, res, _next) => {
   res.status(statusCode).json({
     status: err.status || 'error',
     message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    ...(env.NODE_ENV === 'development' && { stack: err.stack }),
   })
 })
 
