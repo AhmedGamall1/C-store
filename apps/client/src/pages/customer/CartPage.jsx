@@ -1,4 +1,5 @@
-import { Link } from 'react-router'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router'
 import {
   Minus,
   Plus,
@@ -11,13 +12,36 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useCart, useUpdateCartItem, useRemoveCartItem } from '@/hooks/useCart'
 import { cn, formatEGP } from '@/lib/utils'
 
 export default function CartPage() {
+  const navigate = useNavigate()
   const { cart, isLoading } = useCart()
   const { items, total, totalItems } = cart
+  const [blockerOpen, setBlockerOpen] = useState(false)
+
+  // Lines that block checkout: removed/inactive variant, out of stock, or
+  // a quantity that exceeds the current stock.
+  const blockedLines = items.filter(
+    (i) => !i.isActive || i.stock <= 0 || i.quantity > i.stock
+  )
+
+  const handleCheckout = (e) => {
+    if (blockedLines.length > 0) {
+      e.preventDefault()
+      setBlockerOpen(true)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -98,7 +122,9 @@ export default function CartPage() {
             </div>
 
             <Button asChild size="lg" className="mt-6 w-full">
-              <Link to="/checkout">Proceed to Checkout</Link>
+              <Link to="/checkout" onClick={handleCheckout}>
+                Proceed to Checkout
+              </Link>
             </Button>
 
             <p className="mt-3 text-center text-xs text-muted-foreground">
@@ -107,6 +133,82 @@ export default function CartPage() {
           </div>
         </aside>
       </div>
+
+      <Dialog open={blockerOpen} onOpenChange={setBlockerOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Resolve cart issues
+            </DialogTitle>
+            <DialogDescription>
+              {blockedLines.length === 1
+                ? "One item in your cart can't be checked out."
+                : `${blockedLines.length} items in your cart can't be checked out.`}{' '}
+              Update or remove them before continuing.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ul className="divide-y rounded-md border">
+            {blockedLines.map((item) => {
+              const reason = !item.isActive
+                ? 'No longer available'
+                : item.stock <= 0
+                  ? 'Out of stock'
+                  : `Only ${item.stock} in stock`
+              return (
+                <li
+                  key={item.id}
+                  className="flex items-start gap-3 p-3 text-sm"
+                >
+                  <div className="aspect-product w-10 shrink-0 overflow-hidden rounded-md border bg-secondary">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.product.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="flex-1">
+                    <p className="line-clamp-1 font-medium">
+                      {item.product.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.color.name} · Size {item.size}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={!item.isActive || item.stock <= 0
+                      ? 'destructive'
+                      : 'warning'}
+                    className="shrink-0 normal-case"
+                  >
+                    {reason}
+                  </Badge>
+                </li>
+              )
+            })}
+          </ul>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBlockerOpen(false)}
+            >
+              Stay in cart
+            </Button>
+            <Button
+              onClick={() => {
+                setBlockerOpen(false)
+                navigate('/shop')
+              }}
+            >
+              Continue shopping
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -118,7 +220,8 @@ function CartLineItem({ item }) {
   const busy = updateItem.isPending || removeItem.isPending
   const maxQty = item.stock
   const unavailable = !item.isActive
-  const overStock = item.quantity > item.stock
+  const outOfStock = item.isActive && item.stock <= 0
+  const overStock = !outOfStock && item.quantity > item.stock
 
   const inc = () => {
     if (item.quantity >= maxQty) return
@@ -170,6 +273,11 @@ function CartLineItem({ item }) {
                 <AlertTriangle className="h-3 w-3" />
                 No longer available
               </Badge>
+            ) : outOfStock ? (
+              <Badge variant="destructive" className="mt-2 gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Out of stock
+              </Badge>
             ) : overStock ? (
               <Badge variant="warning" className="mt-2 gap-1">
                 <AlertTriangle className="h-3 w-3" />
@@ -193,7 +301,7 @@ function CartLineItem({ item }) {
               className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
               aria-label="Decrease"
               onClick={dec}
-              disabled={busy || item.quantity <= 1 || unavailable}
+              disabled={busy || item.quantity <= 1 || unavailable || outOfStock}
             >
               <Minus className="h-3 w-3" />
             </button>
@@ -205,7 +313,9 @@ function CartLineItem({ item }) {
               className="grid h-9 w-9 place-items-center text-muted-foreground hover:text-foreground disabled:opacity-50"
               aria-label="Increase"
               onClick={inc}
-              disabled={busy || item.quantity >= maxQty || unavailable}
+              disabled={
+                busy || item.quantity >= maxQty || unavailable || outOfStock
+              }
             >
               <Plus className="h-3 w-3" />
             </button>
