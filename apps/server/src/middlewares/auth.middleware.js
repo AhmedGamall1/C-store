@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
+import { env } from '../config/env.js'
 
 export const protect = async (req, res, next) => {
   let token
@@ -14,7 +15,7 @@ export const protect = async (req, res, next) => {
     throw new AppError('You are not logged in', 401)
   }
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET)
+  const decoded = jwt.verify(token, env.JWT_SECRET)
 
   const user = await prisma.user.findUnique({
     where: { id: decoded.id },

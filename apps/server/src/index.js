@@ -1,3 +1,4 @@
+import { env } from './config/env.js'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -18,7 +19,6 @@ import { startStockExpiryJob } from './jobs/stockExpiry.job.js'
 dotenv.config({ path: '../../.env' })
 
 const app = express()
-const PORT = process.env.PORT || 5000
 
 // Middlewares
 app.use(helmet())
@@ -72,9 +72,9 @@ app.use((err, req, res, _next) => {
   })
 })
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-  console.log(`Environment: ${process.env.NODE_ENV}`)
+app.listen(env.PORT, () => {
+  console.log(`Server running on http://localhost:${env.PORT}`)
+  console.log(`Environment: ${env.NODE_ENV}`)
   startStockExpiryJob()
 })
 

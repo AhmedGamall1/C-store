@@ -1,6 +1,7 @@
 import AppError from '../utils/AppError.js'
 import crypto from 'crypto'
 import prisma from '../config/database.js'
+import { env } from '../config/env.js'
 
 const PAYMOB_API_URL = 'https://accept.paymob.com/api'
 
@@ -8,7 +9,7 @@ const getAuthToken = async () => {
   const res = await fetch(`${PAYMOB_API_URL}/auth/tokens`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: process.env.PAYMOB_API_KEY }),
+    body: JSON.stringify({ api_key: env.PAYMOB_API_KEY }),
   })
 
   const data = await res.json()
@@ -73,7 +74,7 @@ const getPaymentKey = async (
         state: billingData.governorate,
       },
       currency: 'EGP',
-      integration_id: Number(process.env.PAYMOB_INTEGRATION_ID),
+      integration_id: Number(env.PAYMOB_INTEGRATION_ID),
     }),
   })
 
@@ -132,7 +133,7 @@ export const initiatePaymobPayment = async (order, user) => {
     buildBillingData(order, user)
   )
 
-  const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${process.env.PAYMOB_IFRAME_ID}?payment_token=${paymentKey}`
+  const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${env.PAYMOB_IFRAME_ID}?payment_token=${paymentKey}`
 
   return { iframeUrl, paymobOrderId: String(paymobOrderId) }
 }
@@ -164,7 +165,7 @@ export const verifyPaymobHmac = (body, receivedHmac) => {
   ].join('')
 
   const computed = crypto
-    .createHmac('sha512', process.env.PAYMOB_HMAC_SECRET)
+    .createHmac('sha512', env.PAYMOB_HMAC_SECRET)
     .update(concatenated)
     .digest('hex')
 

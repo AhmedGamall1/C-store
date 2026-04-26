@@ -2,10 +2,11 @@ import prisma from '../config/database.js'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import AppError from '../utils/AppError.js'
+import { env } from '../config/env.js'
 
 const signToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  return jwt.sign({ id, role }, env.JWT_SECRET, {
+    expiresIn: env.JWT_EXPIRES_IN || '7d',
   })
 }
 
@@ -16,7 +17,7 @@ const sendTokenResponse = (user, statusCode, res) => {
   // cookie options
   const cookieOptions = {
     httpOnly: true, // JS cannot read this cookie
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in prod
+    secure: env.NODE_ENV === 'production', // HTTPS only in prod
     sameSite: 'strict', // blocks CSRF attacks
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
   }
