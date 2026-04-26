@@ -4,6 +4,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
+import prisma from './config/database.js'
 import authRoutes from './routes/auth.routes.js'
 import categoryRoutes from './routes/category.routes.js'
 import productRoutes from './routes/product.routes.js'
@@ -57,13 +58,23 @@ app.use('/api/addresses', addressRoutes)
 app.use('/api/paymob', paymobRoutes)
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    message: 'C-Store API is running',
-    environment: env.NODE_ENV,
-    timestamp: new Date().toISOString(),
-  })
+app.get('/api/health', async (req, res) => {
+  try {
+    // pinging database
+    await prisma.$queryRaw`SELECT 1`
+    res.json({
+      status: 'ok',
+      message: 'C-Store API is running',
+      environment: env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+    })
+  } catch {
+    res.status(503).json({
+      status: 'error',
+      message: 'Database unreachable',
+      timestamp: new Date().toISOString(),
+    })
+  }
 })
 
 // 404 handler
@@ -84,10 +95,59 @@ app.use((err, req, res, _next) => {
   })
 })
 
-app.listen(env.PORT, () => {
+// boot
+const server = app.listen(env.PORT, () => {
   console.log(`Server running on http://localhost:${env.PORT}`)
   console.log(`Environment: ${env.NODE_ENV}`)
-  startStockExpiryJob()
+})
+
+const stockExpiryInterval = startStockExpiryJob()
+
+// Graceful shutdown
+let shuttingDown = false
+
+const shutdown = async (signal) => {
+  if (shuttingDown) return
+  shuttingDown = true
+
+  console.log(`\n[shutdown] Received ${signal}, draining…`)
+
+  // Stop the background job
+  clearInterval(stockExpiryInterval)
+
+  // Stop accepting new connections + finish current requests
+  server.close(async (err) => {
+    if (err) {
+      console.error('[shutdown] HTTP server close error:', err)
+      process.exit(1)
+    }
+    try {
+      await prisma.$disconnect()
+      console.log('[shutdown] Clean exit')
+      process.exit(0)
+    } catch (e) {
+      console.error('[shutdown] Prisma disconnect error:', e)
+      process.exit(1)
+    }
+  })
+
+  // Incase request hangs forever, don't block the deploy
+  setTimeout(() => {
+    console.error('[shutdown] Force exit after 10s timeout')
+    process.exit(1)
+  }, 10_000).unref()
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] Unhandled rejection:', reason)
+  shutdown('unhandledRejection')
+})
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] Uncaught exception:', err)
+  shutdown('uncaughtException')
 })
 
 export default app

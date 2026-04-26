@@ -59,8 +59,9 @@ const cancelExpiredReservations = async () => {
   }
 }
 
+// Returns the interval handle so the caller can stop the job on shutdown.
 export const startStockExpiryJob = () => {
   console.log('[stock-expiry] Job started — checking every 5 minutes')
   cancelExpiredReservations()
-  setInterval(cancelExpiredReservations, INTERVAL_MS)
+  return setInterval(cancelExpiredReservations, INTERVAL_MS)
 }
