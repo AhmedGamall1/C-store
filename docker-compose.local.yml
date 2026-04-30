@@ -1,0 +1,23 @@
+# Local override for running the production stack on your laptop.
+#
+# Use:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.local.yml up -d --build
+#
+# What it changes vs docker-compose.prod.yml:
+#   - server: NODE_ENV=production, CLIENT_URL points at cstore.local,
+#     DATABASE_URL hard-points at the compose service `postgres`
+#     (overrides whatever your dev .env says about localhost)
+#   - web: mounts infra/Caddyfile.local (plain HTTP, no ACME)
+#
+# Your dev .env is untouched. The dev docker-compose.yml is unaffected.
+
+services:
+  server:
+    environment:
+      NODE_ENV: production
+      CLIENT_URL: http://cstore.local
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+
+  web:
+    volumes:
+      - ./infra/Caddyfile.local:/etc/caddy/Caddyfile:ro

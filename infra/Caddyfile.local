@@ -1,0 +1,25 @@
+# local-only override (HTTP, no ACME)
+#
+# Used by docker-compose.local.yml. Do NOT use in production.
+
+{
+    # Caddy's automatic HTTPS would try to provision a Let's Encrypt
+    # cert for cstore.local — disabled here so we run plain HTTP.
+    auto_https off
+}
+
+http://cstore.local {
+    encode gzip
+
+    # Reverse proxy /api/* to the Node server
+    handle /api/* {
+        reverse_proxy server:5000
+    }
+
+    # SPA fallback for the client
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
