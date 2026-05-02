@@ -10,7 +10,9 @@
   "scripts": {
     "dev": "concurrently \"npm run dev -w apps/server\" \"npm run dev -w apps/client\"",
     "lint": "eslint apps",
-    "format": "prettier --write apps packages"
+    "format": "prettier --write apps packages",
+    "test": "npm test -w apps/server",
+    "test:watch": "npm run test:watch -w apps/server"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
