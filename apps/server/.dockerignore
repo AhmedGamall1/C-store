@@ -7,3 +7,5 @@ node_modules
 Dockerfile
 .dockerignore
 prisma/migrations/.gitkeep
+tests
+vitest.config.js

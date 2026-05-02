@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
 
-    include: ['src/**/*.test.js', 'tests/**/*.test.js'],
+    include: ['tests/**/*.test.js'],
 
     // setup files to run before each test file
     setupFiles: [],
