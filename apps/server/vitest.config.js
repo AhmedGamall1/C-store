@@ -5,15 +5,9 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.js'],
 
-    // Run once before the whole suite (migrations).
     globalSetup: ['tests/setup/global.js'],
-
-    // Run inside each test process before tests start.
-    // Order matters: env first (so DATABASE_URL is set), then cleanup.
     setupFiles: ['tests/setup/env.js', 'tests/setup/cleanup.js'],
 
-    // Critical: integration tests share one DB — running them in
-    // parallel would race on TRUNCATE. Force serial execution.
     pool: 'forks',
     poolOptions: {
       forks: {
@@ -21,9 +15,41 @@ export default defineConfig({
       },
     },
 
-    // Integration tests can be slower than unit tests (DB roundtrips).
     testTimeout: 10_000,
-
     reporters: ['default'],
+
+    coverage: {
+      provider: 'v8',
+
+      // What to measure coverage on. We want src/, NOT tests themselves.
+      include: ['src/**/*.js'],
+
+      // Files that exist but have no real logic to test.
+      exclude: [
+        'src/index.js', // server bootstrap — covered by smoke
+        'src/config/**', // env + db wiring — exercised everywhere
+        'src/jobs/**', // background jobs — separate test strategy
+        '**/*.test.js',
+      ],
+
+      // Multiple report formats:
+      // - 'text' prints a table to the terminal
+      // - 'html' generates a browsable report in coverage/index.html
+      // - 'json-summary' is machine-readable (used by CI for PR comments)
+      reporter: ['text', 'html', 'json-summary'],
+
+      // Output directory — already gitignored from Phase 1.
+      reportsDirectory: './coverage',
+
+      // Thresholds intentionally NOT set yet. When you have ~70%+ real
+      // coverage on critical paths, uncomment and tune:
+      //
+      // thresholds: {
+      //   lines: 70,
+      //   functions: 70,
+      //   branches: 60,
+      //   statements: 70,
+      // },
+    },
   },
 })

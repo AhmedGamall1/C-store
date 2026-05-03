@@ -12,7 +12,8 @@
     "lint": "eslint apps",
     "format": "prettier --write apps packages",
     "test": "npm test -w apps/server",
-    "test:watch": "npm run test:watch -w apps/server"
+    "test:watch": "npm run test:watch -w apps/server",
+    "test:coverage": "npm run test:coverage -w apps/server"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
