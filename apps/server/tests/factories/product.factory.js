@@ -59,3 +59,30 @@ export const createVariant = async (overrides = {}) => {
 
   return { category, product, color, size }
 }
+
+// Standalone category factory — when a test needs a category but no product.
+let catCounter = 0
+export const createCategory = async (overrides = {}) => {
+  catCounter += 1
+  const tag = `c${Date.now()}-${catCounter}`
+  return prisma.category.create({
+    data: {
+      name: overrides.name ?? `Cat ${tag}`,
+      slug: overrides.slug ?? `cat-${tag}`,
+      imageUrl: 'https://example.test/cat.jpg',
+      imagePublicId: `cat-${tag}`,
+      isActive: overrides.isActive ?? true,
+    },
+  })
+}
+
+// Build N product variants in one call. Each gets its own
+// category + product + color + size, so they're independent.
+// Use overrides per index by passing a function: createVariants(3, i => ({ price: i*10 }))
+export const createVariants = async (count, overridesFn = () => ({})) => {
+  const out = []
+  for (let i = 0; i < count; i++) {
+    out.push(await createVariant(overridesFn(i)))
+  }
+  return out
+}

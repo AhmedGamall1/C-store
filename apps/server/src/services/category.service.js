@@ -44,7 +44,6 @@ export const getCategoryBySlug = async (slug) => {
           price: true,
           comparePrice: true,
           imageUrl: true,
-          stock: true,
         },
       },
     },
