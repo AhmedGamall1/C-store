@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import request from 'supertest'
-import app from '../../src/app.js'
-import prisma from '../../src/config/database.js'
-import { createUser } from '../factories/user.factory.js'
+import app from '../../../src/app.js'
+import prisma from '../../../src/config/database.js'
+import { createUser } from '../../factories/user.factory.js'
 
 describe('POST /api/auth/register', () => {
   // ---------- happy path ----------

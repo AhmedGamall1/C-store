@@ -6,7 +6,6 @@ import { env } from '../config/env.js'
 export const protect = async (req, res, next) => {
   let token
 
-  // check cookie first
   if (req.cookies?.token) {
     token = req.cookies.token
   }
@@ -15,7 +14,12 @@ export const protect = async (req, res, next) => {
     throw new AppError('You are not logged in', 401)
   }
 
-  const decoded = jwt.verify(token, env.JWT_SECRET)
+  let decoded
+  try {
+    decoded = jwt.verify(token, env.JWT_SECRET)
+  } catch {
+    throw new AppError('Invalid or expired token', 401)
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: decoded.id },
