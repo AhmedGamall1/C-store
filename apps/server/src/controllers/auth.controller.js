@@ -4,16 +4,17 @@ import AppError from '../utils/AppError.js'
 import { env } from '../config/env.js'
 import * as userRepo from '../repositories/user.repository.js'
 
+const SESSION_DAYS = 30
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
-  sameSite: 'strict',
-  maxAge: 7 * 24 * 60 * 60 * 1000,
+  sameSite: 'lax',
+  maxAge: SESSION_DAYS * 24 * 60 * 60 * 1000,
 }
 
 const signToken = (id, role) =>
   jwt.sign({ id, role }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN || '7d',
+    expiresIn: `${SESSION_DAYS}d`,
   })
 
 const sendTokenResponse = (user, statusCode, res) => {
