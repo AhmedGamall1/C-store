@@ -95,7 +95,13 @@ describe('POST /api/auth/register', () => {
 
     expect(res.status).toBe(400)
     expect(res.body.status).toBe('fail')
-    expect(res.body.message).toMatch(/required/i)
+    expect(res.body.message).toBe('Validation failed')
+
+    // errors is an array of { path, message } — order isn't guaranteed
+    const paths = res.body.errors.map((e) => e.path)
+    expect(paths).toEqual(
+      expect.arrayContaining(['firstName', 'lastName', 'password'])
+    )
   })
 
   it('returns 400 when password is shorter than 8 characters', async () => {
@@ -107,7 +113,22 @@ describe('POST /api/auth/register', () => {
     })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/8 characters/i)
+    expect(res.body.message).toBe('Validation failed')
+    const passwordError = res.body.errors.find((e) => e.path === 'password')
+    expect(passwordError.message).toMatch(/8 characters/i)
+  })
+
+  it('returns 400 when email is not a valid address', async () => {
+    const res = await request(app).post('/api/auth/register').send({
+      email: 'not-an-email',
+      password: 'password123',
+      firstName: 'Jane',
+      lastName: 'Doe',
+    })
+
+    expect(res.status).toBe(400)
+    const emailError = res.body.errors.find((e) => e.path === 'email')
+    expect(emailError.message).toMatch(/invalid email/i)
   })
 
   // ---------- conflict ----------

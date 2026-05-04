@@ -90,6 +90,7 @@ app.use((err, req, res, _next) => {
   res.status(statusCode).json({
     status: err.status || 'error',
     message: err.message || 'Internal server error',
+    ...(err.errors && { errors: err.errors }),
     ...(env.NODE_ENV === 'development' && { stack: err.stack }),
   })
 })

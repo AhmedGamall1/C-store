@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken'
-import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
 import { env } from '../config/env.js'
+import * as userRepo from '../repositories/user.repository.js'
 
 export const protect = async (req, res, next) => {
   let token
@@ -21,9 +21,7 @@ export const protect = async (req, res, next) => {
     throw new AppError('Invalid or expired token', 401)
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: decoded.id },
-  })
+  const user = await userRepo.findUserById(decoded.id)
 
   if (!user) {
     throw new AppError('User no longer exists', 401)
@@ -57,12 +55,10 @@ export const optionalAuth = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-    })
+    const decoded = jwt.verify(token, env.JWT_SECRET)
+    const user = await userRepo.findUserById(decoded.id)
 
-    if (user && user.isActive) {
+    if (user?.isActive) {
       req.user = user
     }
   } catch {

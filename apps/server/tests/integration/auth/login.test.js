@@ -45,13 +45,14 @@ describe('POST /api/auth/login', () => {
   })
 
   // ---------- validation ----------
-  it('returns 400 when email is missing', async () => {
+  it('returns 400 with a per-field error when email is missing', async () => {
     const res = await request(app)
       .post('/api/auth/login')
       .send({ password: 'password123' })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/email and password/i)
+    expect(res.body.message).toBe('Validation failed')
+    expect(res.body.errors.some((e) => e.path === 'email')).toBe(true)
   })
 
   it('returns 400 when password is missing', async () => {
