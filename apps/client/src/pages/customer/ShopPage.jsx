@@ -21,6 +21,7 @@ import { ProductFilters } from '@/components/product/ProductFilters'
 import { Pagination } from '@/components/product/Pagination'
 import { useProducts } from '@/hooks/useProducts'
 import { useCategories } from '@/hooks/useCategories'
+import { ErrorView } from '@/components/common/ErrorView'
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
@@ -60,7 +61,7 @@ export default function ShopPage() {
     ...(search && { search }),
   }
 
-  const { data, isLoading, isError } = useProducts(filters)
+  const { data, isLoading, isError, error, refetch } = useProducts(filters)
   const { data: categories = [] } = useCategories()
 
   const products = data?.products ?? []
@@ -191,9 +192,15 @@ export default function ShopPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : isError ? (
-              <div className="py-20 text-center text-sm text-muted-foreground">
-                Something went wrong loading products. Please try again.
-              </div>
+              <ErrorView
+                error={error}
+                onRetry={() => refetch()}
+                fallback={{
+                  title: 'Could not load products',
+                  body: 'Please try again in a moment.',
+                  cta: 'retry',
+                }}
+              />
             ) : products.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-20 text-center">
                 <PackageOpen className="h-10 w-10 text-muted-foreground" />

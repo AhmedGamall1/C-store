@@ -46,7 +46,6 @@ export function useUpdateOrderStatus() {
       qc.invalidateQueries({ queryKey: ['order', 'admin', order.id] })
       toast.success(`Order moved to ${order.status.toLowerCase()}`)
     },
-    onError: (err) => toast.error(err.message),
   })
 }
 
@@ -66,7 +65,6 @@ export function useCreateOrder() {
         clearGuestCart()
       }
     },
-    onError: (err) => toast.error(err.message),
   })
 }
 
@@ -103,6 +101,5 @@ export function useCancelMyOrder() {
       qc.invalidateQueries({ queryKey: ['order'] })
       toast.success('Order cancelled')
     },
-    onError: (err) => toast.error(err.message),
   })
 }

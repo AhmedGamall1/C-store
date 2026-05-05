@@ -1,6 +1,6 @@
 import { Link, useParams, useNavigate } from 'react-router'
 import { useState } from 'react'
-import { ArrowLeft, Loader2, Package, Save } from 'lucide-react'
+import { ArrowLeft, Loader2, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
@@ -15,7 +15,7 @@ import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from '@/components/common/OrderStatusBadge'
-import { EmptyState } from '@/components/common/EmptyState'
+import { ErrorView } from '@/components/common/ErrorView'
 import { useAdminOrder, useUpdateOrderStatus } from '@/hooks/useOrders'
 import { formatDate, formatEGP, cn } from '@/lib/utils'
 
@@ -32,7 +32,13 @@ const TRANSITIONS = {
 export default function AdminOrderDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { data: order, isLoading, isError } = useAdminOrder(id)
+  const {
+    data: order,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useAdminOrder(id)
   const updateStatus = useUpdateOrderStatus()
   const [nextStatus, setNextStatus] = useState('')
 
@@ -46,18 +52,16 @@ export default function AdminOrderDetailPage() {
 
   if (isError || !order) {
     return (
-      <EmptyState
-        icon={Package}
-        title="Order not found"
-        description="We couldn't locate an order with that ID."
-        action={
-          <Button asChild variant="outline">
-            <Link to="/admin/orders">
-              <ArrowLeft className="h-4 w-4" />
-              Back to orders
-            </Link>
-          </Button>
-        }
+      <ErrorView
+        error={error}
+        onRetry={() => refetch()}
+        homeHref="/admin/orders"
+        homeLabel="Back to orders"
+        fallback={{
+          title: 'Order not found',
+          body: "We couldn't locate an order with that ID.",
+          cta: 'home',
+        }}
       />
     )
   }

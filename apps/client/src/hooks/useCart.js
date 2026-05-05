@@ -152,7 +152,6 @@ function useCartMutation(mutationFn, { successMsg } = {}) {
       if (cart) qc.setQueryData(['cart'], cart)
       if (successMsg) toast.success(successMsg)
     },
-    onError: (err) => toast.error(err.message),
   })
 }
 

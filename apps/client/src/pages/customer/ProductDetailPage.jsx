@@ -25,6 +25,7 @@ import { SectionHeader } from '@/components/common/SectionHeader'
 import { useProduct, useProducts } from '@/hooks/useProducts'
 import { formatEGP } from '@/lib/utils'
 import { useAddToCart } from '@/hooks/useCart'
+import { ErrorView } from '@/components/common/ErrorView'
 
 function avgRating(reviews = []) {
   if (reviews.length === 0) return 0
@@ -41,7 +42,13 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1)
   const [selectedColorId, setSelectedColorId] = useState(null)
   const [selectedSizeId, setSelectedSizeId] = useState(null)
-  const { data: product, isLoading, isError } = useProduct(slug)
+  const {
+    data: product,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useProduct(slug)
 
   // Default to the first color on first load / when product changes
   useEffect(() => {
@@ -102,17 +109,17 @@ export default function ProductDetailPage() {
 
   if (isError || !product) {
     return (
-      <div className="container-page py-40 text-center">
-        <h1 className="font-display text-3xl font-bold">Product not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This product may have been removed or doesnot exist.
-        </p>
-        <Link to="/shop">
-          <Button variant="outline" className="mt-6">
-            Back to shop
-          </Button>
-        </Link>
-      </div>
+      <ErrorView
+        error={error}
+        onRetry={() => refetch()}
+        homeHref="/shop"
+        homeLabel="Back to shop"
+        fallback={{
+          title: 'Product not found',
+          body: 'This product may have been removed or does not exist.',
+          cta: 'home',
+        }}
+      />
     )
   }
 

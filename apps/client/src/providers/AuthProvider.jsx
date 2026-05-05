@@ -1,6 +1,5 @@
 import { createContext, useContext } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import {
   getMe,
   login as loginApi,
@@ -15,6 +14,8 @@ const AuthContext = createContext(null)
 // Merge anything the user added as a guest into their server cart. Silent no-op
 // when there's nothing to merge; on failure we keep the guest items in
 // localStorage so the user can retry instead of losing their cart.
+// The global error handler will toast the actual API error; we just don't
+// rethrow so login itself succeeds either way.
 async function mergeGuestIntoServer(queryClient) {
   const items = getGuestItems()
   if (items.length === 0) return
@@ -22,8 +23,8 @@ async function mergeGuestIntoServer(queryClient) {
     const cart = await mergeCart(items)
     clearGuestCart()
     queryClient.setQueryData(['cart'], cart)
-  } catch (err) {
-    toast.error(err.message || 'Failed to merge your cart')
+  } catch {
+    /* handled globally */
   }
 }
 
@@ -43,6 +44,8 @@ export function AuthProvider({ children }) {
     staleTime: 5 * 60_000, // 5 min — user identity doesn't change often
     // Treat 401 as "logged out" instead of an error state
     throwOnError: false,
+    // 401 here is the normal guest path — don't toast or redirect.
+    meta: { silent401: true, silentError: true },
   })
 
   const loginMutation = useMutation({

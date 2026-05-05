@@ -1,0 +1,12 @@
+{
+  "NETWORK": "You appear to be offline. Check your connection.",
+  "UNAUTHORIZED": "Please sign in to continue.",
+  "FORBIDDEN": "You don't have permission to do that.",
+  "NOT_FOUND": "We couldn't find what you were looking for.",
+  "VALIDATION": "Please check the highlighted fields.",
+  "RATE_LIMIT": "You're going too fast. Please wait a moment.",
+  "SERVER": "Something went wrong on our end. Please try again.",
+  "GENERIC": "Something went wrong.",
+  "RETRY": "Try again",
+  "UNEXPECTED": "Unexpected response from the server."
+}

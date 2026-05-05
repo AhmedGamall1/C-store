@@ -66,7 +66,6 @@ function useProductMutation(mutationFn, { successMsg } = {}) {
       qc.invalidateQueries({ queryKey: ['product'] })
       if (successMsg) toast.success(successMsg)
     },
-    onError: (err) => toast.error(err.message),
   })
 }
 

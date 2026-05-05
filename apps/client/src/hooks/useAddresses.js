@@ -27,7 +27,6 @@ function useAddressMutation(mutationFn, { successMsg } = {}) {
       qc.invalidateQueries({ queryKey: ['addresses'] })
       if (successMsg) toast.success(successMsg)
     },
-    onError: (err) => toast.error(err.message),
   })
 }
 

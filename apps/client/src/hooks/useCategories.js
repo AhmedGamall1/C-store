@@ -32,7 +32,6 @@ function useCategoryMutation(mutationFn, { successMsg } = {}) {
       qc.invalidateQueries({ queryKey: ['categories'] })
       if (successMsg) toast.success(successMsg)
     },
-    onError: (err) => toast.error(err.message),
   })
 }
 

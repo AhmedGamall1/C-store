@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/common/Logo'
 import { useAuth } from '@/providers/AuthProvider'
 import { loginSchema } from '@/lib/validation/auth'
+import { useApiError } from '@/hooks/useApiError'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -17,14 +18,16 @@ export default function LoginPage() {
   const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
 
+  const form = useForm({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: '', password: '' },
+  })
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
-  })
+  } = form
+  const { handle: handleApiError } = useApiError({ form })
 
   const onSubmit = async (values) => {
     try {
@@ -33,7 +36,7 @@ export default function LoginPage() {
       const to = location.state?.from ?? '/'
       navigate(to, { replace: true })
     } catch (e) {
-      toast.error(e.message)
+      handleApiError(e)
     }
   }
 

@@ -19,8 +19,8 @@ export function AccountSidebar() {
       await logout()
       toast.success('Signed out')
       navigate('/', { replace: true })
-    } catch (e) {
-      toast.error(e.message)
+    } catch {
+      /* handled globally */
     }
   }
 

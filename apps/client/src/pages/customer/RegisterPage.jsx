@@ -10,18 +10,14 @@ import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/common/Logo'
 import { useAuth } from '@/providers/AuthProvider'
 import { registerSchema } from '@/lib/validation/auth'
+import { useApiError } from '@/hooks/useApiError'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { register: registerUser } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors, isSubmitting },
-  } = useForm({
+  const form = useForm({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       firstName: '',
@@ -31,6 +27,13 @@ export default function RegisterPage() {
       password: '',
     },
   })
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = form
+  const { handle: handleApiError } = useApiError({ form })
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const password = watch('password')
@@ -46,7 +49,7 @@ export default function RegisterPage() {
       toast.success(`Welcome to C-Store, ${user.firstName}`)
       navigate('/', { replace: true })
     } catch (e) {
-      toast.error(e.message)
+      handleApiError(e)
     }
   }
 

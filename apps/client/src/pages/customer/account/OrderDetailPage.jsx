@@ -22,7 +22,7 @@ import {
   OrderStatusBadge,
   PaymentStatusBadge,
 } from '@/components/common/OrderStatusBadge'
-import { EmptyState } from '@/components/common/EmptyState'
+import { ErrorView } from '@/components/common/ErrorView'
 import { useCancelMyOrder, useMyOrder } from '@/hooks/useOrders'
 import { formatDate, formatEGP, cn } from '@/lib/utils'
 
@@ -43,7 +43,13 @@ const STAGE_INDEX = {
 
 export default function OrderDetailPage() {
   const { id } = useParams()
-  const { data: order, isLoading, isError } = useMyOrder(id)
+  const {
+    data: order,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useMyOrder(id)
   const cancelOrder = useCancelMyOrder()
   const [confirmOpen, setConfirmOpen] = useState(false)
 
@@ -57,18 +63,16 @@ export default function OrderDetailPage() {
 
   if (isError || !order) {
     return (
-      <EmptyState
-        icon={Package}
-        title="Order not found"
-        description="We couldn't locate an order with that ID."
-        action={
-          <Button asChild variant="outline">
-            <Link to="/account/orders">
-              <ArrowLeft className="h-4 w-4" />
-              Back to orders
-            </Link>
-          </Button>
-        }
+      <ErrorView
+        error={error}
+        onRetry={() => refetch()}
+        homeHref="/account/orders"
+        homeLabel="Back to orders"
+        fallback={{
+          title: 'Order not found',
+          body: "We couldn't locate an order with that ID.",
+          cta: 'home',
+        }}
       />
     )
   }
