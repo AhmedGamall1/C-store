@@ -6,13 +6,13 @@ export const getCart = async (req, res) => {
   res.json({ status: 'success', data: { cart } })
 }
 
-// POST /api/cart/items — body: { productSizeId, quantity }
+// POST /api/cart/items
 export const addItem = async (req, res) => {
   const cart = await cartService.addItem(req.user.id, req.body)
   res.status(201).json({ status: 'success', data: { cart } })
 }
 
-// PATCH /api/cart/items/:productSizeId — body: { quantity }
+// PATCH /api/cart/items/:productSizeId
 export const updateItem = async (req, res) => {
   const cart = await cartService.updateItem(
     req.user.id,
@@ -37,7 +37,7 @@ export const clearCart = async (req, res) => {
   res.json({ status: 'success', data: { cart } })
 }
 
-// POST /api/cart/merge — body: { items: [{ productSizeId, quantity }] }
+// POST /api/cart/merge
 export const mergeCart = async (req, res) => {
   const cart = await cartService.mergeGuestCart(req.user.id, req.body.items)
   res.json({ status: 'success', data: { cart } })

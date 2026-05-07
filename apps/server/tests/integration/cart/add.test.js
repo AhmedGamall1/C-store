@@ -69,14 +69,16 @@ describe('POST /api/cart/items', () => {
   })
 
   // ---------- validation ----------
-  it('returns 400 when productSizeId is missing', async () => {
+  it('returns 400 with a per-field error when productSizeId is missing', async () => {
     const { cookie } = await loggedInUser()
     const res = await request(app)
       .post('/api/cart/items')
       .set('Cookie', cookie)
       .send({ quantity: 1 })
+
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/productSizeId/i)
+    expect(res.body.message).toBe('Validation failed')
+    expect(res.body.errors.some((e) => e.path === 'productSizeId')).toBe(true)
   })
 
   it('returns 400 when quantity is zero or negative', async () => {
@@ -89,7 +91,8 @@ describe('POST /api/cart/items', () => {
       .send({ productSizeId: size.id, quantity: 0 })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/at least 1/i)
+    const qtyError = res.body.errors.find((e) => e.path === 'quantity')
+    expect(qtyError.message).toMatch(/at least 1/i)
   })
 
   // ---------- variant state ----------
