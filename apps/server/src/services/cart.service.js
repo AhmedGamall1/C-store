@@ -1,4 +1,3 @@
-import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
 import * as cartRepo from '../repositories/cart.repository.js'
 import * as variantRepo from '../repositories/variant.repository.js'
