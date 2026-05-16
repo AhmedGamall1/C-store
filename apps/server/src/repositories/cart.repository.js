@@ -70,3 +70,8 @@ export const deleteCartItem = (cartId, productSizeId, tx = prisma) =>
 
 export const deleteAllCartItems = (cartId, tx = prisma) =>
   tx.cartItem.deleteMany({ where: { cartId } })
+
+export const deleteCartItemsBySizeIds = (cartId, ids, tx = prisma) =>
+  tx.cartItem.deleteMany({
+    where: { cartId, productSizeId: { in: ids } },
+  })

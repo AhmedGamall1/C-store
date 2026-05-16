@@ -2,7 +2,6 @@ import * as orderService from '../services/order.service.js'
 import { initiatePaymobPayment } from '../services/paymob.service.js'
 
 // POST /api/orders
-// Accessible by both guests and logged-in users (optionalAuth middleware).
 export const createOrder = async (req, res) => {
   const order = await orderService.createOrder(req.user ?? null, req.body)
 
@@ -14,15 +13,11 @@ export const createOrder = async (req, res) => {
     order,
     req.user ?? null
   )
-
   await orderService.savePaymobOrderId(order.id, paymobOrderId)
 
   return res.status(201).json({
     status: 'success',
-    data: {
-      order: { ...order, paymobOrderId },
-      iframeUrl,
-    },
+    data: { order: { ...order, paymobOrderId }, iframeUrl },
   })
 }
 
@@ -44,7 +39,7 @@ export const cancelOrder = async (req, res) => {
   res.json({ status: 'success', data: { order } })
 }
 
-// GET /api/orders/admin  (admin only)
+// GET /api/orders/admin
 export const getAllOrders = async (req, res) => {
   const result = await orderService.getAllOrders(req.query)
   res.json({
@@ -54,15 +49,17 @@ export const getAllOrders = async (req, res) => {
   })
 }
 
-// GET /api/orders/admin/:id  (admin only)
+// GET /api/orders/admin/:id
 export const getOrderByIdAdmin = async (req, res) => {
   const order = await orderService.getOrderByIdAdmin(req.params.id)
   res.json({ status: 'success', data: { order } })
 }
 
-// PATCH /api/orders/:id/status  (admin only)
+// PATCH /api/orders/:id/status
 export const updateOrderStatus = async (req, res) => {
-  const { status } = req.body
-  const order = await orderService.updateOrderStatus(req.params.id, status)
+  const order = await orderService.updateOrderStatus(
+    req.params.id,
+    req.body.status
+  )
   res.json({ status: 'success', data: { order } })
 }

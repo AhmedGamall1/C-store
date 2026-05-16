@@ -84,7 +84,7 @@ describe('POST /api/orders — logged-in user, COD', () => {
   })
 
   // ---------- validation ----------
-  it('returns 400 when items array is empty', async () => {
+  it('returns 400 with a validation error when items array is empty', async () => {
     const { user, cookie } = await loggedInUser()
     const addr = await createAddress(user.id)
 
@@ -94,7 +94,12 @@ describe('POST /api/orders — logged-in user, COD', () => {
       .send({ addressId: addr.id, items: [] })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/at least one item/i)
+    expect(res.body.message).toBe('Validation failed')
+    expect(
+      res.body.errors.some(
+        (e) => e.path === 'items' && /at least one item/i.test(e.message)
+      )
+    ).toBe(true)
   })
 
   it('returns 400 when addressId is missing for a logged-in user', async () => {
@@ -107,7 +112,7 @@ describe('POST /api/orders — logged-in user, COD', () => {
       .send({ items: [{ productSizeId: v.size.id, quantity: 1 }] })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/addressId/)
+    expect(res.body.errors.some((e) => e.path === 'addressId')).toBe(true)
   })
 
   it('returns 404 when the address belongs to another user', async () => {
@@ -219,15 +224,14 @@ describe('POST /api/orders — guest', () => {
       .post('/api/orders')
       .send({
         items: [{ productSizeId: v.size.id, quantity: 1 }],
-        shippingAddress: {
-          street: 'x',
-          city: 'Cairo',
-          governorate: 'cairo',
-        },
+        guest: {},
+        shippingAddress: { street: 'x', city: 'Cairo', governorate: 'cairo' },
       })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/guest contact info/i)
+    // both name and phone come back as missing fields
+    const paths = res.body.errors.map((e) => e.path)
+    expect(paths).toEqual(expect.arrayContaining(['guest.name', 'guest.phone']))
   })
 
   it('returns 400 when guest shipping address is incomplete', async () => {
@@ -242,7 +246,9 @@ describe('POST /api/orders — guest', () => {
       })
 
     expect(res.status).toBe(400)
-    expect(res.body.message).toMatch(/shipping address/i)
+    expect(
+      res.body.errors.some((e) => e.path === 'shippingAddress.governorate')
+    ).toBe(true)
   })
 })
 
