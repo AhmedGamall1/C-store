@@ -44,14 +44,8 @@ export const deleteSize = async (req, res) => {
   res.status(204).send()
 }
 
-// GET /api/variants/bulk?ids=uuid1,uuid2,...
+// GET /api/variants/bulk?ids=<csv>
 export const getVariantsBulk = async (req, res) => {
-  const raw = (req.query.ids || '').toString()
-  const ids = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  const variants = await variantService.getVariantsBulk(ids)
+  const variants = await variantService.getVariantsBulk(req.query.ids)
   res.json({ status: 'success', data: { variants } })
 }

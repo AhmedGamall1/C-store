@@ -68,8 +68,8 @@ export const updateProductBodySchema = z
   })
 
 // ---------- queries ----------
-const sortBy = z.enum(['createdAt', 'price', 'name']).default('createdAt')
-const order = z.enum(['asc', 'desc']).default('desc')
+const sortBy = z.enum(['createdAt', 'price', 'name']).catch('createdAt')
+const order = z.enum(['asc', 'desc']).catch('desc')
 
 export const listProductsPublicQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),

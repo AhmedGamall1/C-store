@@ -22,6 +22,14 @@ import {
   idParamSchema,
   slugParamSchema,
 } from '../schemas/product.schema.js'
+import {
+  addColorBodySchema,
+  updateColorBodySchema,
+  addSizeBodySchema,
+  updateSizeBodySchema,
+  colorParamsSchema,
+  sizeParamsSchema,
+} from '../schemas/variant.schema.js'
 
 const router = Router()
 
@@ -37,7 +45,6 @@ router.get(
   getAllProducts
 )
 
-// admin listing & detail must come before /:slug
 router.get(
   '/admin',
   protect,
@@ -90,13 +97,15 @@ router.delete(
   forceDeleteProduct
 )
 
-// ----- variants (Phase 6b will refactor these; routes unchanged for now) -----
+// ----- colors -----
 router.post(
   '/:id/colors',
   protect,
   restrictTo('ADMIN'),
   productUpload,
   handleMulterError,
+  requireFile('image'),
+  validate({ params: idParamSchema, body: addColorBodySchema }),
   variantController.addColor
 )
 router.patch(
@@ -105,31 +114,37 @@ router.patch(
   restrictTo('ADMIN'),
   productUpload,
   handleMulterError,
+  validate({ params: colorParamsSchema, body: updateColorBodySchema }),
   variantController.updateColor
 )
 router.delete(
   '/:id/colors/:colorId',
   protect,
   restrictTo('ADMIN'),
+  validate({ params: colorParamsSchema }),
   variantController.deleteColor
 )
 
+// ----- sizes -----
 router.post(
   '/:id/colors/:colorId/sizes',
   protect,
   restrictTo('ADMIN'),
+  validate({ params: colorParamsSchema, body: addSizeBodySchema }),
   variantController.addSize
 )
 router.patch(
   '/:id/colors/:colorId/sizes/:sizeId',
   protect,
   restrictTo('ADMIN'),
+  validate({ params: sizeParamsSchema, body: updateSizeBodySchema }),
   variantController.updateSize
 )
 router.delete(
   '/:id/colors/:colorId/sizes/:sizeId',
   protect,
   restrictTo('ADMIN'),
+  validate({ params: sizeParamsSchema }),
   variantController.deleteSize
 )
 

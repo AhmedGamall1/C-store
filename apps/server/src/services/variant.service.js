@@ -1,52 +1,28 @@
-import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
 import { deleteImage, uploadImage } from '../utils/cloudinary.util.js'
+import { withTransaction } from '../repositories/transaction.js'
+import * as variantRepo from '../repositories/variant.repository.js'
+import * as productRepo from '../repositories/product.repository.js'
 
 const COLORS_FOLDER = 'c-store/products/colors'
 
-const parseSizes = (raw) => {
-  if (!raw) return []
-  let arr = raw
-  if (typeof raw === 'string') {
-    try {
-      arr = JSON.parse(raw)
-    } catch {
-      throw new AppError('sizes must be valid JSON', 400)
-    }
-  }
-  if (!Array.isArray(arr)) {
-    throw new AppError('sizes must be an array', 400)
-  }
-  return arr.map((s) => {
-    if (!s?.size) throw new AppError('Each size must have a size label', 400)
-    return {
-      size: String(s.size).trim(),
-      stock: Number.isFinite(+s.stock) ? Math.max(0, Math.floor(+s.stock)) : 0,
-      sku: s.sku?.trim() || null,
-      price: s.price ? Number(s.price) : null,
-    }
-  })
-}
-
 export const addColor = async (productId, data, files = {}) => {
-  const { name, hex, sizes } = data
   const { imageBuffer, galleryBuffers = [] } = files
 
-  if (!name) throw new AppError('Color name is required', 400)
-  if (!imageBuffer) throw new AppError('Color cover image is required', 400)
+  if (!imageBuffer) {
+    throw new AppError('Color cover image is required', 400)
+  }
 
-  const product = await prisma.product.findUnique({ where: { id: productId } })
+  const product = await productRepo.findById(productId)
   if (!product) throw new AppError('Product not found', 404)
 
-  const trimmed = name.trim()
-  const duplicate = await prisma.productColor.findUnique({
-    where: { productId_name: { productId, name: trimmed } },
-  })
+  const duplicate = await variantRepo.findColorByProductAndName(
+    productId,
+    data.name
+  )
   if (duplicate) {
     throw new AppError('This color already exists for this product', 409)
   }
-
-  const parsedSizes = parseSizes(sizes)
 
   const cover = await uploadImage(imageBuffer, COLORS_FOLDER)
 
@@ -60,45 +36,46 @@ export const addColor = async (productId, data, files = {}) => {
     imagePublicIds = results.map((r) => r.public_id)
   }
 
-  return prisma.productColor.create({
-    data: {
-      productId,
-      name: trimmed,
-      hex: hex?.trim() || null,
-      imageUrl: cover.secure_url,
-      imagePublicId: cover.public_id,
-      images,
-      imagePublicIds,
-      sizes: parsedSizes.length ? { create: parsedSizes } : undefined,
-    },
-    include: { sizes: true },
+  return variantRepo.createColor({
+    productId,
+    name: data.name,
+    hex: data.hex ?? null,
+    imageUrl: cover.secure_url,
+    imagePublicId: cover.public_id,
+    images,
+    imagePublicIds,
+    sizes: data.sizes?.length
+      ? {
+          create: data.sizes.map((s) => ({
+            size: s.size,
+            stock: s.stock,
+            sku: s.sku ?? null,
+            price: s.price ?? null,
+          })),
+        }
+      : undefined,
   })
 }
 
 export const updateColor = async (colorId, data, files = {}) => {
-  const color = await prisma.productColor.findUnique({ where: { id: colorId } })
+  const color = await variantRepo.findColorById(colorId)
   if (!color) throw new AppError('Color not found', 404)
 
-  const { productId } = color
   const { imageBuffer, galleryBuffers = [] } = files
   const updateData = {}
 
-  if (data.name !== undefined) {
-    const trimmed = data.name.trim()
-    if (trimmed !== color.name) {
-      const duplicate = await prisma.productColor.findUnique({
-        where: { productId_name: { productId, name: trimmed } },
-      })
-      if (duplicate) {
-        throw new AppError('This color already exists for this product', 409)
-      }
+  if (data.name !== undefined && data.name !== color.name) {
+    const duplicate = await variantRepo.findColorByProductAndName(
+      color.productId,
+      data.name
+    )
+    if (duplicate) {
+      throw new AppError('This color already exists for this product', 409)
     }
-    updateData.name = trimmed
+    updateData.name = data.name
   }
-  if (data.hex !== undefined) updateData.hex = data.hex?.trim() || null
-  if (data.isActive !== undefined) {
-    updateData.isActive = data.isActive === true || data.isActive === 'true'
-  }
+  if (data.hex !== undefined) updateData.hex = data.hex ?? null
+  if (data.isActive !== undefined) updateData.isActive = data.isActive
 
   if (imageBuffer) {
     await deleteImage(color.imagePublicId)
@@ -116,26 +93,18 @@ export const updateColor = async (colorId, data, files = {}) => {
     updateData.imagePublicIds = results.map((r) => r.public_id)
   }
 
-  return prisma.productColor.update({
-    where: { id: colorId },
-    data: updateData,
-    include: { sizes: true },
-  })
+  return variantRepo.updateColorById(colorId, updateData)
 }
 
 export const deleteColor = async (colorId) => {
-  const color = await prisma.productColor.findUnique({
-    where: { id: colorId },
-    include: { sizes: { select: { id: true } } },
-  })
+  const color = await variantRepo.findColorByIdWithSizes(colorId)
   if (!color) throw new AppError('Color not found', 404)
 
   const sizeIds = color.sizes.map((s) => s.id)
 
+  // Refuse hard delete if any of these sizes appear in an order.
   if (sizeIds.length > 0) {
-    const orderItemCount = await prisma.orderItem.count({
-      where: { productSizeId: { in: sizeIds } },
-    })
+    const orderItemCount = await productRepo.countOrderItemsBySizeIds(sizeIds)
     if (orderItemCount > 0) {
       throw new AppError(
         `Cannot delete this color — it's been ordered. Disable it via PATCH isActive=false instead.`,
@@ -144,24 +113,15 @@ export const deleteColor = async (colorId) => {
     }
   }
 
-  // Last-sellable-variant guard: if this color is currently sellable AND
-  // the product is active, make sure at least one OTHER sellable color exists.
+  // Last-sellable guard: don't strand an active product with no buyable color.
   if (color.isActive) {
-    const product = await prisma.product.findUnique({
-      where: { id: color.productId },
-      select: { isActive: true },
-    })
+    const product = await productRepo.findById(color.productId)
     if (product?.isActive) {
-      const otherSellableColor = await prisma.productColor.findFirst({
-        where: {
-          productId: color.productId,
-          id: { not: colorId },
-          isActive: true,
-          sizes: { some: { isActive: true } },
-        },
-        select: { id: true },
-      })
-      if (!otherSellableColor) {
+      const otherSellable = await variantRepo.findOtherSellableColor(
+        color.productId,
+        colorId
+      )
+      if (!otherSellable) {
         throw new AppError(
           `Cannot delete the last sellable color of an active product. Deactivate the product first, or add another color.`,
           409
@@ -170,93 +130,67 @@ export const deleteColor = async (colorId) => {
     }
   }
 
-  await prisma.$transaction([
-    prisma.cartItem.deleteMany({ where: { productSizeId: { in: sizeIds } } }),
-    prisma.productColor.delete({ where: { id: colorId } }),
-  ])
+  await withTransaction(async (tx) => {
+    if (sizeIds.length > 0) {
+      await productRepo.cleanupCartItemsBySizeIds(sizeIds, tx)
+    }
+    await variantRepo.removeColorById(colorId, tx) // cascades to sizes
+  })
 
+  // Cloudinary cleanup AFTER the DB commit — if the DB rolls back, images stay.
   await deleteImage(color.imagePublicId)
   await Promise.all((color.imagePublicIds ?? []).map(deleteImage))
 }
 
 export const addSize = async (colorId, data) => {
-  const color = await prisma.productColor.findUnique({ where: { id: colorId } })
+  const color = await variantRepo.findColorById(colorId)
   if (!color) throw new AppError('Color not found', 404)
 
-  if (!data.size) throw new AppError('Size label is required', 400)
-
-  const duplicate = await prisma.productSize.findUnique({
-    where: { colorId_size: { colorId, size: String(data.size).trim() } },
-  })
+  const duplicate = await variantRepo.findSizeByColorAndLabel(
+    colorId,
+    data.size
+  )
   if (duplicate) {
     throw new AppError('This size already exists for this color', 409)
   }
 
-  return prisma.productSize.create({
-    data: {
-      colorId,
-      size: String(data.size).trim(),
-      stock: Number.isFinite(+data.stock)
-        ? Math.max(0, Math.floor(+data.stock))
-        : 0,
-      sku: data.sku?.trim() || null,
-      price: data.price ? Number(data.price) : null,
-    },
+  return variantRepo.createSize({
+    colorId,
+    size: data.size,
+    stock: data.stock,
+    sku: data.sku ?? null,
+    price: data.price ?? null,
   })
 }
 
 export const updateSize = async ({ colorId, sizeId }, data) => {
-  const size = await prisma.productSize.findUnique({ where: { id: sizeId } })
+  const size = await variantRepo.findSizeById(sizeId)
   if (!size) throw new AppError('Size not found', 404)
 
   const updateData = {}
-  if (data.size !== undefined) {
-    const trimmed = String(data.size).trim()
-
-    if (trimmed !== size.size) {
-      const duplicate = await prisma.productSize.findUnique({
-        where: { colorId_size: { colorId, size: trimmed } },
-      })
-      if (duplicate) {
-        throw new AppError('This size already exists for this color', 409)
-      }
+  if (data.size !== undefined && data.size !== size.size) {
+    const duplicate = await variantRepo.findSizeByColorAndLabel(
+      colorId,
+      data.size
+    )
+    if (duplicate) {
+      throw new AppError('This size already exists for this color', 409)
     }
+    updateData.size = data.size
+  }
+  if (data.stock !== undefined) updateData.stock = data.stock
+  if (data.sku !== undefined) updateData.sku = data.sku ?? null
+  if (data.price !== undefined) updateData.price = data.price ?? null
+  if (data.isActive !== undefined) updateData.isActive = data.isActive
 
-    updateData.size = trimmed
-  }
-  if (data.stock !== undefined) {
-    updateData.stock = Math.max(0, Math.floor(Number(data.stock) || 0))
-  }
-  if (data.sku !== undefined) updateData.sku = data.sku?.trim() || null
-  if (data.price !== undefined) {
-    updateData.price = data.price ? Number(data.price) : null
-  }
-  if (data.isActive !== undefined) {
-    updateData.isActive = data.isActive === true || data.isActive === 'true'
-  }
-
-  return prisma.productSize.update({ where: { id: sizeId }, data: updateData })
+  return variantRepo.updateSizeById(sizeId, updateData)
 }
 
 export const deleteSize = async (sizeId) => {
-  const size = await prisma.productSize.findUnique({
-    where: { id: sizeId },
-    include: {
-      color: {
-        select: {
-          id: true,
-          isActive: true,
-          productId: true,
-          product: { select: { id: true, isActive: true } },
-        },
-      },
-    },
-  })
+  const size = await variantRepo.findSizeWithContext(sizeId)
   if (!size) throw new AppError('Size not found', 404)
 
-  const orderItemCount = await prisma.orderItem.count({
-    where: { productSizeId: sizeId },
-  })
+  const orderItemCount = await productRepo.countOrderItemsBySizeIds([sizeId])
   if (orderItemCount > 0) {
     throw new AppError(
       `Cannot delete this size — it's been ordered. Disable it via PATCH isActive=false instead.`,
@@ -264,29 +198,19 @@ export const deleteSize = async (sizeId) => {
     )
   }
 
-  // Last-sellable-variant guard
+  // Last-sellable guard, two-step:
+  //   1. Is there another active size under THIS color?
+  //   2. If not, is any OTHER color on the product still sellable?
   if (size.isActive && size.color.isActive && size.color.product.isActive) {
-    // Is there another active size under the SAME color?
-    const otherSizeInColor = await prisma.productSize.findFirst({
-      where: {
-        colorId: size.colorId,
-        id: { not: sizeId },
-        isActive: true,
-      },
-      select: { id: true },
-    })
-
+    const otherSizeInColor = await variantRepo.findOtherActiveSizeInColor(
+      size.colorId,
+      sizeId
+    )
     if (!otherSizeInColor) {
-      // This color would become unsellable — is any OTHER color still sellable?
-      const otherSellableColor = await prisma.productColor.findFirst({
-        where: {
-          productId: size.color.productId,
-          id: { not: size.colorId },
-          isActive: true,
-          sizes: { some: { isActive: true } },
-        },
-        select: { id: true },
-      })
+      const otherSellableColor = await variantRepo.findOtherSellableColor(
+        size.color.productId,
+        size.colorId
+      )
       if (!otherSellableColor) {
         throw new AppError(
           `Cannot delete the last sellable size of an active product. Deactivate the product first, or add another size.`,
@@ -296,35 +220,16 @@ export const deleteSize = async (sizeId) => {
     }
   }
 
-  await prisma.$transaction([
-    prisma.cartItem.deleteMany({ where: { productSizeId: sizeId } }),
-    prisma.productSize.delete({ where: { id: sizeId } }),
-  ])
+  await withTransaction(async (tx) => {
+    await productRepo.cleanupCartItemsBySizeIds([sizeId], tx)
+    await variantRepo.removeSizeById(sizeId, tx)
+  })
 }
 
-// Bulk public lookup for cart rendering + guest-cart validation.
-// Returns one row per found productSize; missing ids are simply absent.
 export const getVariantsBulk = async (ids) => {
   if (!Array.isArray(ids) || ids.length === 0) return []
 
-  const sizes = await prisma.productSize.findMany({
-    where: { id: { in: ids } },
-    include: {
-      color: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              price: true,
-              isActive: true,
-            },
-          },
-        },
-      },
-    },
-  })
+  const sizes = await variantRepo.findProductSizesForBulk(ids)
 
   return sizes.map((s) => ({
     id: s.id,
