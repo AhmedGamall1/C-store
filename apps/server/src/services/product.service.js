@@ -1,90 +1,58 @@
-import prisma from '../config/database.js'
 import AppError from '../utils/AppError.js'
 import { deleteImage, uploadImage } from '../utils/cloudinary.util.js'
 import slugify from '../utils/slugify.js'
+import * as productRepo from '../repositories/product.repository.js'
+import * as categoryRepo from '../repositories/category.repository.js'
+import { withTransaction } from '../repositories/transaction.js'
 
 const PRODUCTS_FOLDER = 'c-store/products'
 
-// What a product card shows on listing pages
-const productCardInclude = {
-  category: { select: { id: true, name: true, slug: true } },
-  colors: {
-    where: { isActive: true },
-    orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      name: true,
-      hex: true,
-      imageUrl: true,
-    },
-  },
+// ---------- public reads ----------
+export const getAllProducts = async (query) => {
+  const { page, limit, category, minPrice, maxPrice, search, sortBy, order } =
+    query
+
+  const skip = (page - 1) * limit
+  const where = {}
+  if (category) where.category = { slug: category }
+  if (minPrice != null || maxPrice != null) {
+    where.price = {}
+    if (minPrice != null) where.price.gte = minPrice
+    if (maxPrice != null) where.price.lte = maxPrice
+  }
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { description: { contains: search, mode: 'insensitive' } },
+    ]
+  }
+
+  const [products, total] = await productRepo.findManyPublic({
+    where,
+    skip,
+    take: limit,
+    orderBy: { [sortBy]: order },
+  })
+
+  return {
+    products,
+    pagination: paginationOf(total, page, limit, skip),
+  }
 }
 
-const hasSellableVariant = {
-  colors: {
-    some: {
-      isActive: true,
-      sizes: { some: { isActive: true } },
-    },
-  },
-}
-// Products are only "buyable" if they themselves are active, their category is
-// active, AND they have at least one active color that has at least one active
-// size with stock > 0. Used on all public reads.
-// const buyableProductWhere = {
-//   isActive: true,
-//   category: { isActive: true },
-//   colors: {
-//     some: {
-//       isActive: true,
-//       sizes: {
-//         some: { isActive: true, stock: { gt: 0 } },
-//       },
-//     },
-//   },
-// }
-
-// Full detail shape for a single product page
-const productDetailInclude = {
-  category: { select: { id: true, name: true, slug: true } },
-  colors: {
-    where: { isActive: true },
-    orderBy: { createdAt: 'asc' },
-    include: {
-      sizes: {
-        where: { isActive: true },
-        orderBy: { createdAt: 'asc' },
-      },
-    },
-  },
-  reviews: {
-    include: {
-      user: { select: { id: true, firstName: true, lastName: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-  },
-  _count: { select: { reviews: true } },
+export const getProductBySlug = async (slug) => {
+  const product = await productRepo.findPublicBySlug(slug)
+  if (!product) throw new AppError('Product not found', 404)
+  return product
 }
 
-// getAllProductsAdmin — no active filters, shows everything
+// ---------- admin reads ----------
 export const getAllProductsAdmin = async (query) => {
-  const {
-    page = 1,
-    limit = 20,
-    category,
-    search,
-    sortBy = 'createdAt',
-    order = 'desc',
-  } = query
-
-  const skip = (Number(page) - 1) * Number(limit)
-  const take = Number(limit)
+  const { page, limit, category, search, sortBy, order } = query
+  const skip = (page - 1) * limit
 
   const where = {}
-  if (category) {
-    where.category = { slug: category }
-  }
+  if (category) where.category = { slug: category }
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
@@ -92,231 +60,89 @@ export const getAllProductsAdmin = async (query) => {
     ]
   }
 
-  const allowedSortFields = ['createdAt', 'price', 'name']
-  const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt'
-  const sortOrder = order === 'asc' ? 'asc' : 'desc'
+  const [products, total] = await productRepo.findManyAdmin({
+    where,
+    skip,
+    take: limit,
+    orderBy: { [sortBy]: order },
+  })
 
-  const [products, total] = await prisma.$transaction([
-    prisma.product.findMany({
-      where,
-      skip,
-      take,
-      orderBy: { [sortField]: sortOrder },
-      include: productCardInclude,
-    }),
-    prisma.product.count({ where }),
-  ])
   return {
     products,
-    pagination: {
-      total,
-      page: Number(page),
-      limit: take,
-      totalPages: Math.ceil(total / take),
-      hasNextPage: skip + take < total,
-      hasPrevPage: Number(page) > 1,
-    },
+    pagination: paginationOf(total, page, limit, skip),
   }
 }
 
-// getProductByIdAdmin — fetch by ID, no active filter (for admin edit)
 export const getProductByIdAdmin = async (id) => {
-  const product = await prisma.product.findUnique({
-    where: { id },
-    include: {
-      category: { select: { id: true, name: true, slug: true } },
-      colors: {
-        orderBy: { createdAt: 'asc' },
-        include: {
-          sizes: { orderBy: { createdAt: 'asc' } },
-        },
-      },
-    },
-  })
-
-  if (!product) {
-    throw new AppError('Product not found', 404)
-  }
-
+  const product = await productRepo.findByIdAdminDetail(id)
+  if (!product) throw new AppError('Product not found', 404)
   return product
 }
 
-// getAllProducts with pagination, filtering, sorting, and search
-export const getAllProducts = async (query) => {
-  const {
-    // pagination defaults if user doesn't provide them
-    page = 1,
-    limit = 12,
-    // filtering and sorting
-    category,
-    minPrice,
-    maxPrice,
-    // search term for name and description
-    search,
-    // sorting defaults
-    sortBy = 'createdAt',
-    order = 'desc',
-  } = query
-
-  // pagination calculations
-  const skip = (Number(page) - 1) * Number(limit)
-  const take = Number(limit)
-
-  // build filter dynamically
-  const where = {
-    isActive: true,
-    category: { isActive: true },
-    ...hasSellableVariant,
-  }
-  if (category) {
-    where.category = { slug: category }
-  }
-
-  if (minPrice || maxPrice) {
-    where.price = {}
-    if (minPrice) where.price.gte = Number(minPrice)
-    if (maxPrice) where.price.lte = Number(maxPrice)
-  }
-
-  if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-    ]
-  }
-
-  // valid sort fields — never trust user input for sort column
-  const allowedSortFields = ['createdAt', 'price', 'name']
-  const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt'
-  const sortOrder = order === 'asc' ? 'asc' : 'desc'
-
-  const [products, total] = await prisma.$transaction([
-    prisma.product.findMany({
-      where,
-      skip,
-      take,
-      orderBy: { [sortField]: sortOrder },
-      include: productCardInclude,
-    }),
-    prisma.product.count({ where }),
-  ])
-  return {
-    products,
-    pagination: {
-      total,
-      page: Number(page),
-      limit: take,
-      totalPages: Math.ceil(total / take),
-      hasNextPage: skip + take < total,
-      hasPrevPage: Number(page) > 1,
-    },
-  }
-}
-
-// getProductBySlug
-export const getProductBySlug = async (slug) => {
-  const product = await prisma.product.findFirst({
-    where: {
-      slug,
-      isActive: true,
-      category: { isActive: true },
-      ...hasSellableVariant,
-    },
-    include: productDetailInclude,
-  })
-
-  if (!product) {
-    throw new AppError('Product not found', 404)
-  }
-
-  return product
-}
-
-// Admin functions - createProduct
+// ---------- writes ----------
 export const createProduct = async (data, files = {}) => {
-  const { name, description, price, comparePrice, sku, categoryId } = data
   const { imageBuffer } = files
+  if (!imageBuffer) throw new AppError('Product image is required', 400)
 
-  if (!name || !price || !categoryId) {
-    throw new AppError('Name, price and category are required', 400)
-  }
-  if (!imageBuffer) {
-    throw new AppError('Product image is required', 400)
-  }
-  if (Number(price) <= 0) {
-    throw new AppError('Price must be greater than zero', 400)
-  }
-  if (comparePrice && Number(comparePrice) <= Number(price)) {
-    throw new AppError('Compare price must be greater than selling price', 400)
-  }
+  const category = await categoryRepo.findById(data.categoryId)
+  if (!category) throw new AppError('Category not found', 404)
 
-  const category = await prisma.category.findUnique({
-    where: { id: categoryId },
-  })
-  if (!category) {
-    throw new AppError('Category not found', 404)
-  }
-
-  const slug = slugify(name)
-  const existing = await prisma.product.findUnique({ where: { slug } })
+  const slug = slugify(data.name)
+  const existing = await productRepo.findBySlug(slug)
   if (existing) {
     throw new AppError('Product with this name already exists', 409)
   }
 
   const cover = await uploadImage(imageBuffer, PRODUCTS_FOLDER)
 
-  return prisma.product.create({
-    data: {
-      name: name.trim(),
-      slug,
-      description: description?.trim(),
-      price: Number(price),
-      comparePrice: comparePrice ? Number(comparePrice) : null,
-      sku: sku?.trim() ?? null,
-      imageUrl: cover.secure_url,
-      imagePublicId: cover.public_id,
-      categoryId,
-    },
-    include: { category: { select: { id: true, name: true, slug: true } } },
+  return productRepo.create({
+    name: data.name,
+    slug,
+    description: data.description ?? null,
+    price: data.price,
+    comparePrice: data.comparePrice ?? null,
+    sku: data.sku ?? null,
+    imageUrl: cover.secure_url,
+    imagePublicId: cover.public_id,
+    categoryId: data.categoryId,
   })
 }
 
-// Admin functions - updateProduct
 export const updateProduct = async (id, data, files = {}) => {
   const { imageBuffer } = files
-  const product = await prisma.product.findUnique({ where: { id } })
-  if (!product) {
-    throw new AppError('Product not found', 404)
+  const product = await productRepo.findById(id)
+  if (!product) throw new AppError('Product not found', 404)
+
+  // Cross-field rule against stored values: if only ONE of price/comparePrice
+  // is being updated, validate against the existing value.
+  const finalPrice = data.price ?? Number(product.price)
+  const finalCompare =
+    data.comparePrice !== undefined
+      ? data.comparePrice
+      : product.comparePrice != null
+        ? Number(product.comparePrice)
+        : null
+  if (finalCompare != null && finalCompare <= finalPrice) {
+    throw new AppError('Compare price must be greater than selling price', 400)
   }
 
-  const { name, price, comparePrice, isActive, categoryId, description, sku } =
-    data
-
-  const updateData = {
-    ...(name && { name: name.trim(), slug: slugify(name) }),
-    ...(price !== undefined && { price: Number(price) }),
-    ...(comparePrice !== undefined && {
-      comparePrice: comparePrice ? Number(comparePrice) : null,
-    }),
-    ...(isActive !== undefined && {
-      isActive: isActive === 'true' || isActive === true,
-    }),
-    ...(description !== undefined && {
-      description: description?.trim() || null,
-    }),
-    ...(sku !== undefined && { sku: sku?.trim() || null }),
+  const updateData = {}
+  if (data.name !== undefined) {
+    updateData.name = data.name
+    updateData.slug = slugify(data.name)
   }
+  if (data.description !== undefined)
+    updateData.description = data.description ?? null
+  if (data.price !== undefined) updateData.price = data.price
+  if (data.comparePrice !== undefined)
+    updateData.comparePrice = data.comparePrice ?? null
+  if (data.sku !== undefined) updateData.sku = data.sku ?? null
+  if (data.isActive !== undefined) updateData.isActive = data.isActive
 
-  // Only touch categoryId if it's a non-empty value AND actually different.
-  // Verify it exists to avoid the raw FK-violation error.
-  if (categoryId && categoryId !== product.categoryId) {
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-    })
-    if (!category) {
-      throw new AppError('Category not found', 404)
-    }
-    updateData.categoryId = categoryId
+  if (data.categoryId && data.categoryId !== product.categoryId) {
+    const category = await categoryRepo.findById(data.categoryId)
+    if (!category) throw new AppError('Category not found', 404)
+    updateData.categoryId = data.categoryId
   }
 
   if (imageBuffer) {
@@ -326,47 +152,23 @@ export const updateProduct = async (id, data, files = {}) => {
     updateData.imagePublicId = result.public_id
   }
 
-  return prisma.product.update({
-    where: { id },
-    data: updateData,
-    include: { category: { select: { id: true, name: true, slug: true } } },
-  })
+  return productRepo.updateById(id, updateData)
 }
 
-// Admin functions - deleteProduct (soft delete)
 export const deleteProduct = async (id) => {
-  const product = await prisma.product.findUnique({ where: { id } })
-
-  if (!product) {
-    throw new AppError('Product not found', 404)
-  }
-
-  // soft delete — keeps data integrity for historical orders
-  return prisma.product.update({
-    where: { id },
-    data: { isActive: false },
-  })
+  const product = await productRepo.findById(id)
+  if (!product) throw new AppError('Product not found', 404)
+  return productRepo.softDeleteById(id)
 }
 
-// Admin functions - forceDeleteProduct (hard delete)
 export const forceDeleteProduct = async (id) => {
-  const product = await prisma.product.findUnique({
-    where: { id },
-    include: {
-      colors: { include: { sizes: { select: { id: true } } } },
-    },
-  })
-
-  if (!product) {
-    throw new AppError('Product not found', 404)
-  }
+  const product = await productRepo.findByIdWithVariantsForDelete(id)
+  if (!product) throw new AppError('Product not found', 404)
 
   const sizeIds = product.colors.flatMap((c) => c.sizes.map((s) => s.id))
 
   if (sizeIds.length > 0) {
-    const orderItemCount = await prisma.orderItem.count({
-      where: { productSizeId: { in: sizeIds } },
-    })
+    const orderItemCount = await productRepo.countOrderItemsBySizeIds(sizeIds)
     if (orderItemCount > 0) {
       throw new AppError(
         `Cannot hard-delete this product — it has ${orderItemCount} item(s) in existing orders. Use soft delete instead.`,
@@ -375,15 +177,26 @@ export const forceDeleteProduct = async (id) => {
     }
   }
 
-  await prisma.$transaction([
-    prisma.cartItem.deleteMany({ where: { productSizeId: { in: sizeIds } } }),
-    prisma.review.deleteMany({ where: { productId: id } }),
-    prisma.product.delete({ where: { id } }), // cascades to colors → sizes
-  ])
+  await withTransaction(async (tx) => {
+    await productRepo.cleanupCartItemsBySizeIds(sizeIds, tx)
+    await productRepo.removeReviewsByProductId(id, tx)
+    await productRepo.removeById(id, tx) // cascades to colors → sizes
+  })
 
+  // Cloudinary cleanup AFTER DB commit — if DB fails, images stay.
   await deleteImage(product.imagePublicId)
   for (const color of product.colors) {
     await deleteImage(color.imagePublicId)
     await Promise.all((color.imagePublicIds ?? []).map(deleteImage))
   }
 }
+
+// ---------- helpers ----------
+const paginationOf = (total, page, limit, skip) => ({
+  total,
+  page,
+  limit,
+  totalPages: Math.ceil(total / limit),
+  hasNextPage: skip + limit < total,
+  hasPrevPage: page > 1,
+})

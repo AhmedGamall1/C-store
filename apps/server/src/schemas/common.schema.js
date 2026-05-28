@@ -16,3 +16,8 @@ export const paginationQuerySchema = z.object({
 export const booleanString = z
   .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
   .transform((v) => v === true || v === 'true' || v === '1')
+
+export const numericString = z.preprocess(
+  (v) => (v === '' || v === null || v === undefined ? undefined : v),
+  z.coerce.number()
+)

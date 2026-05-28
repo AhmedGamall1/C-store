@@ -12,31 +12,58 @@ import {
 import * as variantController from '../controllers/variant.controller.js'
 import { protect, restrictTo } from '../middlewares/auth.middleware.js'
 import upload, { handleMulterError } from '../middlewares/upload.middlware.js'
+import { validate } from '../middlewares/validate.middleware.js'
+import { requireFile } from '../middlewares/requireFile.middleware.js'
+import {
+  createProductBodySchema,
+  updateProductBodySchema,
+  listProductsPublicQuerySchema,
+  listProductsAdminQuerySchema,
+  idParamSchema,
+  slugParamSchema,
+} from '../schemas/product.schema.js'
 
 const router = Router()
 
-// product / color image upload shape
 const productUpload = upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'images', maxCount: 5 },
 ])
 
-// public routes
-router.get('/', getAllProducts)
+// ----- public -----
+router.get(
+  '/',
+  validate({ query: listProductsPublicQuerySchema }),
+  getAllProducts
+)
 
-// admin listing & detail (before /:slug)
-router.get('/admin', protect, restrictTo('ADMIN'), getAllProductsAdmin)
-router.get('/admin/:id', protect, restrictTo('ADMIN'), getProductByIdAdmin)
+// admin listing & detail must come before /:slug
+router.get(
+  '/admin',
+  protect,
+  restrictTo('ADMIN'),
+  validate({ query: listProductsAdminQuerySchema }),
+  getAllProductsAdmin
+)
+router.get(
+  '/admin/:id',
+  protect,
+  restrictTo('ADMIN'),
+  validate({ params: idParamSchema }),
+  getProductByIdAdmin
+)
 
-router.get('/:slug', getProductBySlug)
+router.get('/:slug', validate({ params: slugParamSchema }), getProductBySlug)
 
-// ---------- admin: product CRUD ----------
+// ----- admin product CRUD -----
 router.post(
   '/',
   protect,
   restrictTo('ADMIN'),
   productUpload,
   handleMulterError,
+  requireFile('image'),
+  validate({ body: createProductBodySchema }),
   createProduct
 )
 router.patch(
@@ -45,12 +72,25 @@ router.patch(
   restrictTo('ADMIN'),
   productUpload,
   handleMulterError,
+  validate({ params: idParamSchema, body: updateProductBodySchema }),
   updateProduct
 )
-router.delete('/:id', protect, restrictTo('ADMIN'), deleteProduct)
-router.delete('/:id/force', protect, restrictTo('ADMIN'), forceDeleteProduct)
+router.delete(
+  '/:id',
+  protect,
+  restrictTo('ADMIN'),
+  validate({ params: idParamSchema }),
+  deleteProduct
+)
+router.delete(
+  '/:id/force',
+  protect,
+  restrictTo('ADMIN'),
+  validate({ params: idParamSchema }),
+  forceDeleteProduct
+)
 
-// ---------- admin: colors ----------
+// ----- variants (Phase 6b will refactor these; routes unchanged for now) -----
 router.post(
   '/:id/colors',
   protect,
@@ -74,7 +114,6 @@ router.delete(
   variantController.deleteColor
 )
 
-// ---------- admin: sizes (JSON only, no files) ----------
 router.post(
   '/:id/colors/:colorId/sizes',
   protect,
