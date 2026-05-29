@@ -1,25 +1,25 @@
-import { CreditCard, MapPin, RotateCcw, Truck } from 'lucide-react'
+import { Banknote, CreditCard, ShieldCheck, Truck } from 'lucide-react'
 
 const ITEMS = [
   {
     icon: Truck,
     title: 'Egypt-wide shipping',
-    body: 'All 27 governorates. Free on orders over 2,000 EGP in Cairo & Giza.',
+    body: 'We deliver to all 27 governorates across Egypt.',
+  },
+  {
+    icon: Banknote,
+    title: 'Cash on delivery',
+    body: 'Pay the driver when your order arrives, anywhere in Egypt.',
   },
   {
     icon: CreditCard,
-    title: 'Cash on delivery',
-    body: 'Pay the driver when you receive your order, anywhere in Egypt.',
+    title: 'Pay by card',
+    body: 'Prefer to pay online? Use your card safely at checkout.',
   },
   {
-    icon: RotateCcw,
-    title: '14-day returns',
-    body: 'Didn’t fit right? Return it in 14 days, no questions asked.',
-  },
-  {
-    icon: MapPin,
-    title: 'Made in Cairo',
-    body: 'Designed, cut and sewn locally. Supporting Egyptian workshops.',
+    icon: ShieldCheck,
+    title: 'Quality you can trust',
+    body: 'Carefully selected premium pieces, made to last.',
   },
 ]
 

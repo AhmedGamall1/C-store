@@ -4,18 +4,10 @@ import { Logo } from '@/components/common/Logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { useCategories } from '@/hooks/useCategories'
 
-const LINK_GROUPS = [
-  {
-    title: 'Shop',
-    links: [
-      { label: 'Shirts', to: '/shop?category=shirts' },
-      { label: 'Jeans', to: '/shop?category=jeans' },
-      { label: 'Sweaters', to: '/shop?category=sweaters' },
-      { label: 'New arrivals', to: '/shop?sort=newest' },
-      { label: 'Bestsellers', to: '/shop?sort=bestsellers' },
-    ],
-  },
+// Static groups. NOTE: these links are not wired to real pages yet.
+const STATIC_GROUPS = [
   {
     title: 'Help',
     links: [
@@ -29,7 +21,6 @@ const LINK_GROUPS = [
     title: 'Company',
     links: [
       { label: 'Our Story', to: '/about' },
-      { label: 'Lookbook', to: '/lookbook' },
       { label: 'Stockists', to: '/stockists' },
       { label: 'Careers', to: '/careers' },
     ],
@@ -37,6 +28,23 @@ const LINK_GROUPS = [
 ]
 
 export function Footer() {
+  const { data: categories = [] } = useCategories()
+
+  // Shop links follow the real categories from the database.
+  const shopGroup = {
+    title: 'Shop',
+    links: [
+      { label: 'Shop all', to: '/shop' },
+      ...categories.map((c) => ({
+        label: c.name,
+        to: `/shop?category=${c.slug}`,
+      })),
+      { label: 'New arrivals', to: '/shop?sort=newest' },
+    ],
+  }
+
+  const linkGroups = [shopGroup, ...STATIC_GROUPS]
+
   return (
     <footer className="mt-24 border-t bg-background">
       <div className="container-page py-16">
@@ -45,8 +53,8 @@ export function Footer() {
           <div className="space-y-4">
             <Logo />
             <p className="max-w-xs text-sm text-muted-foreground">
-              C-Store is an Egyptian streetwear label. Cut, sewn and shipped from
-              Cairo to the rest of the country.
+              Premium clothing for every day, delivered anywhere in Egypt. Pay
+              by card or cash on delivery.
             </p>
             <form className="flex max-w-sm gap-2 pt-2" onSubmit={(e) => e.preventDefault()}>
               <Input placeholder="Your email" type="email" required />
@@ -69,7 +77,7 @@ export function Footer() {
           </div>
 
           {/* Link groups */}
-          {LINK_GROUPS.map((group) => (
+          {linkGroups.map((group) => (
             <div key={group.title}>
               <h4 className="mb-4 text-xs font-semibold uppercase tracking-[0.2em]">
                 {group.title}
@@ -93,7 +101,7 @@ export function Footer() {
         <Separator className="my-10" />
 
         <div className="flex flex-col items-start gap-4 text-xs text-muted-foreground md:flex-row md:items-center md:justify-between">
-          <p>© {new Date().getFullYear()} C-Store. Designed in Cairo.</p>
+          <p>© {new Date().getFullYear()} C-Store. All rights reserved.</p>
           <div className="flex flex-wrap gap-4">
             <Link to="/legal/privacy" className="hover:text-foreground">
               Privacy

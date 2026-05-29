@@ -28,12 +28,6 @@ export function MobileNav() {
               {c.name}
             </Link>
           ))}
-          <Link
-            to="/lookbook"
-            className="block rounded-md px-3 py-2 text-sm font-medium uppercase tracking-wider hover:bg-secondary"
-          >
-            Lookbook
-          </Link>
         </div>
 
         <Separator className="my-4" />

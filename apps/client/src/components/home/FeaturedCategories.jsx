@@ -11,7 +11,7 @@ export function FeaturedCategories() {
       <SectionHeader
         eyebrow="Shop by"
         title="Categories"
-        description="Three staples. Built to layer, mix, wear out."
+        description="Shop our collections, made to last."
         linkLabel="Shop all"
         linkTo="/shop"
       />

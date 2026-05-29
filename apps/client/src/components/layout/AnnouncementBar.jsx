@@ -1,8 +1,8 @@
 export function AnnouncementBar() {
   const messages = [
-    'Free shipping in Cairo & Giza on orders over 2,000 EGP',
-    'New Drop: The Nile Collection — now live',
-    'Cash on delivery available across all 27 governorates',
+    'Premium clothing — delivered across all of Egypt',
+    'Cash on delivery available in all 27 governorates',
+    'Pay securely online by card, or cash on delivery',
   ]
   return (
     <div className="bg-foreground text-background text-xs font-medium">

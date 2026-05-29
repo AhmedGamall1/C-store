@@ -34,7 +34,6 @@ export function Navbar() {
       to: `/shop?category=${c.slug}`,
       label: c.name,
     })),
-    { to: '/lookbook', label: 'Lookbook' },
   ]
 
   const accountHref = isAdmin
@@ -132,7 +131,7 @@ export function Navbar() {
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 autoFocus
-                placeholder="Search for shirts, jeans, sweaters..."
+                placeholder="Search products..."
                 className="pl-10"
               />
             </div>

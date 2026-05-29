@@ -58,7 +58,7 @@ export default function RegisterPage() {
       {/* Visual side (unchanged) */}
       <div className="relative hidden overflow-hidden bg-foreground lg:block">
         <img
-          src="https://picsum.photos/seed/cstore-register/1200/1600"
+          src="/auth-cover-2.jpg"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-80"
         />
@@ -66,24 +66,24 @@ export default function RegisterPage() {
         <div className="relative flex h-full flex-col justify-between p-12 text-background">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em]">
             <span className="inline-block h-1.5 w-6 bg-accent" />
-            Join the crew
+            Create your account
           </div>
           <div>
             <p className="font-display text-4xl font-bold leading-tight sm:text-5xl">
-              Members get first drops.
+              Shop premium, the easy way.
             </p>
             <ul className="mt-6 space-y-3 text-sm text-background/80">
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-accent" />
-                Early access to limited releases
+                Save your details for faster checkout
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-accent" />
-                Free shipping on orders over 1,500 EGP
+                Pay by card or cash on delivery
               </li>
               <li className="flex items-center gap-2">
                 <Check className="h-4 w-4 text-accent" />
-                30-day hassle-free returns
+                Track your orders anytime
               </li>
             </ul>
           </div>
@@ -91,7 +91,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Form side */}
-      <div className="flex items-center justify-center px-6 py-10 sm:px-10">
+      <div className="flex items-start justify-center px-6 py-10 sm:px-10 lg:items-center">
         <div className="w-full max-w-sm">
           <Logo />
 

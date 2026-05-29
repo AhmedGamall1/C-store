@@ -43,7 +43,7 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       {/* Form side */}
-      <div className="flex items-center justify-center px-6 py-10 sm:px-10">
+      <div className="flex items-start justify-center px-6 py-10 sm:px-10 lg:items-center">
         <div className="w-full max-w-sm">
           <Logo />
 
@@ -159,7 +159,7 @@ export default function LoginPage() {
 
       <div className="relative hidden overflow-hidden bg-foreground lg:block">
         <img
-          src="https://picsum.photos/seed/cstore-login/1200/1600"
+          src="/auth-cover.jpg"
           alt=""
           className="absolute inset-0 h-full w-full object-cover opacity-80"
         />
@@ -167,17 +167,17 @@ export default function LoginPage() {
         <div className="relative flex h-full flex-col justify-between p-12 text-background">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em]">
             <span className="inline-block h-1.5 w-6 bg-accent" />
-            Made in Cairo
+            Premium clothing
           </div>
           <div>
             <p className="font-display text-4xl font-bold leading-tight sm:text-5xl">
-              Built for the street.
+              Style that lasts.
               <br />
-              Shaped by the Nile.
+              Delivered to your door.
             </p>
             <p className="mt-4 max-w-md text-sm text-background/70">
-              Premium streetwear pieces, thoughtfully cut and honestly priced.
-              Fast shipping across all 27 governorates.
+              Premium pieces, delivered across all 27 governorates. Pay by
+              card or cash on delivery.
             </p>
           </div>
         </div>
