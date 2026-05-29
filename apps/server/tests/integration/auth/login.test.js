@@ -31,7 +31,7 @@ describe('POST /api/auth/login', () => {
     const setCookie = res.headers['set-cookie']
     expect(setCookie[0]).toMatch(/^token=/)
     expect(setCookie[0]).toMatch(/HttpOnly/)
-    expect(setCookie[0]).toMatch(/SameSite=Strict/i)
+    expect(setCookie[0]).toMatch(/SameSite=Lax/i)
   })
 
   it('accepts email with surrounding whitespace and uppercase', async () => {

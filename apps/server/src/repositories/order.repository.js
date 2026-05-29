@@ -108,3 +108,9 @@ export const savePaymobOrderId = (orderId, paymobOrderId) =>
     where: { id: orderId },
     data: { paymobOrderId },
   })
+
+export const findByPaymobOrderId = (paymobOrderId) =>
+  prisma.order.findFirst({
+    where: { paymobOrderId },
+    include: { items: true },
+  })

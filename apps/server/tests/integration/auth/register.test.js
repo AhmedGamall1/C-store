@@ -70,7 +70,7 @@ describe('POST /api/auth/register', () => {
     expect(setCookie).toBeDefined()
     expect(setCookie[0]).toMatch(/^token=/)
     expect(setCookie[0]).toMatch(/HttpOnly/)
-    expect(setCookie[0]).toMatch(/SameSite=Strict/i)
+    expect(setCookie[0]).toMatch(/SameSite=Lax/i)
   })
 
   it('lowercases and trims the email', async () => {

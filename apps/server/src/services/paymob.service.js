@@ -1,7 +1,8 @@
 import AppError from '../utils/AppError.js'
 import crypto from 'crypto'
-import prisma from '../config/database.js'
 import { env } from '../config/env.js'
+import { withTransaction } from '../repositories/transaction.js'
+import * as orderRepo from '../repositories/order.repository.js'
 
 const PAYMOB_API_URL = 'https://accept.paymob.com/api'
 
@@ -13,11 +14,9 @@ const getAuthToken = async () => {
   })
 
   const data = await res.json()
-
   if (!res.ok || !data.token) {
     throw new AppError('Paymob authentication failed', 502)
   }
-
   return data.token
 }
 
@@ -36,19 +35,17 @@ const registerOrder = async (authToken, amountCents, internalOrderId) => {
   })
 
   const data = await res.json()
-
   if (!res.ok || !data.id) {
     throw new AppError('Failed to register order with Paymob', 502)
   }
-
-  return data.id // Paymob's order ID
+  return data.id
 }
 
 const getPaymentKey = async (
   authToken,
   paymobOrderId,
   amountCents,
-  billingData
+  billing
 ) => {
   const res = await fetch(`${PAYMOB_API_URL}/acceptance/payment_keys`, {
     method: 'POST',
@@ -56,22 +53,22 @@ const getPaymentKey = async (
     body: JSON.stringify({
       auth_token: authToken,
       amount_cents: amountCents,
-      expiration: 3600, // seconds
+      expiration: 3600,
       order_id: paymobOrderId,
       billing_data: {
-        first_name: billingData.firstName,
-        last_name: billingData.lastName,
-        email: billingData.email,
-        phone_number: billingData.phone || 'N/A',
+        first_name: billing.firstName,
+        last_name: billing.lastName,
+        email: billing.email,
+        phone_number: billing.phone || 'N/A',
         apartment: 'N/A',
         floor: 'N/A',
-        street: billingData.street || 'N/A',
+        street: billing.street || 'N/A',
         building: 'N/A',
         shipping_method: 'PKG',
         postal_code: 'N/A',
-        city: billingData.city || billingData.governorate,
+        city: billing.city || billing.governorate,
         country: 'EG',
-        state: billingData.governorate,
+        state: billing.governorate,
       },
       currency: 'EGP',
       integration_id: Number(env.PAYMOB_INTEGRATION_ID),
@@ -79,12 +76,10 @@ const getPaymentKey = async (
   })
 
   const data = await res.json()
-
   if (!res.ok || !data.token) {
     throw new AppError('Failed to generate Paymob payment key', 502)
   }
-
-  return data.token // payment_key for the iframe
+  return data.token
 }
 
 const buildBillingData = (order, user) => {
@@ -101,12 +96,9 @@ const buildBillingData = (order, user) => {
   }
 
   const nameParts = (order.guestName ?? '').trim().split(/\s+/)
-  const firstName = nameParts[0] || 'Guest'
-  const lastName = nameParts.slice(1).join(' ') || 'Customer'
-
   return {
-    firstName,
-    lastName,
+    firstName: nameParts[0] || 'Guest',
+    lastName: nameParts.slice(1).join(' ') || 'Customer',
     email: order.guestEmail,
     phone: order.guestPhone,
     street: order.shippingStreet,
@@ -119,13 +111,8 @@ export const initiatePaymobPayment = async (order, user) => {
   // Paymob works in cents (EGP × 100), must be an integer
   const amountCents = Math.round(Number(order.total) * 100)
 
-  // 1. Authenticate and get token
   const authToken = await getAuthToken()
-
-  // 2. Register order with Paymob
   const paymobOrderId = await registerOrder(authToken, amountCents, order.id)
-
-  // 3. Get payment key for the iframe
   const paymentKey = await getPaymentKey(
     authToken,
     paymobOrderId,
@@ -176,12 +163,8 @@ export const handleWebhookTransaction = async (body) => {
   const { obj } = body
   const paymobOrderId = String(obj.order?.id)
 
-  const order = await prisma.order.findFirst({
-    where: { paymobOrderId },
-    include: { items: true },
-  })
+  const order = await orderRepo.findByPaymobOrderId(paymobOrderId)
 
-  // Unknown order or already in a terminal state — skip silently
   if (
     !order ||
     order.paymentStatus === 'PAID' ||
@@ -189,34 +172,32 @@ export const handleWebhookTransaction = async (body) => {
   ) {
     return
   }
-
   // 3DS still in progress — Paymob will send another event when it settles
   if (obj.pending === true) return
 
   if (obj.success === true) {
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        paymentStatus: 'PAID',
-        status: 'CONFIRMED',
-        reservedUntil: null,
-      },
+    await orderRepo.updateOrder(order.id, {
+      paymentStatus: 'PAID',
+      status: 'CONFIRMED',
+      reservedUntil: null,
     })
-  } else {
-    // handleWebhookTransaction — failure branch only
-    await prisma.$transaction(async (tx) => {
-      for (const item of order.items) {
-        if (item.productSizeId) {
-          await tx.productSize.updateMany({
-            where: { id: item.productSizeId },
-            data: { stock: { increment: item.quantity } },
-          })
-        }
-      }
-      await tx.order.update({
-        where: { id: order.id },
-        data: { status: 'CANCELLED', reservedUntil: null },
-      })
-    })
+    return
   }
+
+  await withTransaction(async (tx) => {
+    for (const item of order.items) {
+      if (item.productSizeId) {
+        await orderRepo.incrementSizeStock(
+          item.productSizeId,
+          item.quantity,
+          tx
+        )
+      }
+    }
+    await orderRepo.updateOrder(
+      order.id,
+      { status: 'CANCELLED', reservedUntil: null },
+      tx
+    )
+  })
 }
