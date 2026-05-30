@@ -6,11 +6,11 @@
 
 const STRIP = /[\s\-()]/g
 
-export function normalizeEgyptPhone(value) {
+export function normalizeEgyptPhone(value: unknown): string {
   return String(value ?? '').replace(STRIP, '')
 }
 
-export function isValidEgyptPhone(value) {
+export function isValidEgyptPhone(value: unknown): boolean {
   const v = normalizeEgyptPhone(value)
   if (!v) return false
   // Local 11-digit form

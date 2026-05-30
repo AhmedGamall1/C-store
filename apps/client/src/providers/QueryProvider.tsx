@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   QueryClient,
   QueryClientProvider,
@@ -7,26 +7,27 @@ import {
 } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { isApiError } from '@/lib/errors/ApiError'
-import { handleApiError } from '@/lib/errors/handler'
+import { handleApiError, type ErrorMeta } from '@/lib/errors/handler'
 
 // Don't retry user errors (4xx) — only network blips and 5xx.
-function shouldRetry(failureCount, error) {
+function shouldRetry(failureCount: number, error: unknown): boolean {
   if (!isApiError(error)) return failureCount < 1
   if (error.isCanceled) return false
   if (error.status >= 400 && error.status < 500) return false
   return failureCount < 2
 }
 
-export function QueryProvider({ children }) {
+export function QueryProvider({ children }: { children: ReactNode }) {
   const [client] = useState(
     () =>
       new QueryClient({
         queryCache: new QueryCache({
-          onError: (error, query) => handleApiError(error, query.meta ?? {}),
+          onError: (error, query) =>
+            handleApiError(error, (query.meta ?? {}) as ErrorMeta),
         }),
         mutationCache: new MutationCache({
           onError: (error, _vars, _ctx, mutation) =>
-            handleApiError(error, mutation.meta ?? {}),
+            handleApiError(error, (mutation.meta ?? {}) as ErrorMeta),
         }),
         defaultOptions: {
           queries: {

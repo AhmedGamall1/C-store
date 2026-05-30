@@ -2,6 +2,11 @@ import { useCallback } from 'react'
 import { isApiError } from '@/lib/errors/ApiError'
 import { handleApiError } from '@/lib/errors/handler'
 
+// Minimal shape we need from react-hook-form to route field errors inline.
+interface FormLike {
+  setError: (name: string, error: { type: string; message: string }) => void
+}
+
 // Form-aware error helper. Pass `form` (react-hook-form's return value) to
 // route validation field errors inline; everything else falls through to the
 // global handler (toast / redirect).
@@ -9,10 +14,10 @@ import { handleApiError } from '@/lib/errors/handler'
 // Usage:
 //   const { handle } = useApiError({ form })
 //   try { await mutation(values) } catch (e) { handle(e) }
-export function useApiError({ form } = {}) {
+export function useApiError({ form }: { form?: FormLike } = {}) {
   const handle = useCallback(
-    (err) => {
-      if (form && isApiError(err) && err.hasFieldErrors) {
+    (err: unknown) => {
+      if (form && isApiError(err) && err.hasFieldErrors && err.fieldErrors) {
         for (const [name, message] of Object.entries(err.fieldErrors)) {
           form.setError(name, { type: 'server', message })
         }

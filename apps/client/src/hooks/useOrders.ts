@@ -10,12 +10,11 @@ import {
   cancelMyOrder,
 } from '@/api/orders'
 import { clearGuestCart } from '@/lib/guestCart'
+import type { ListParams, OrderStatus } from '@/types/api'
 
-/**
- * Admin: paginated list of all orders.
- * filters — { page, limit, status, paymentStatus, paymentMethod }
- */
-export function useAdminOrders(filters = {}) {
+// Admin: paginated list of all orders
+// (page, limit, status, paymentStatus, paymentMethod, q).
+export function useAdminOrders(filters: ListParams = {}) {
   return useQuery({
     queryKey: ['orders', 'admin', filters],
     queryFn: () => getAdminOrders(filters),
@@ -23,24 +22,21 @@ export function useAdminOrders(filters = {}) {
   })
 }
 
-/**
- * Admin: single order detail.
- */
-export function useAdminOrder(id) {
+// Admin: single order detail.
+export function useAdminOrder(id?: string) {
   return useQuery({
     queryKey: ['order', 'admin', id],
-    queryFn: () => getAdminOrder(id),
+    queryFn: () => getAdminOrder(id!),
     enabled: Boolean(id),
   })
 }
 
-/**
- * Admin: update order status. Server validates the transition.
- */
+// Admin: update order status. Server validates the transition.
 export function useUpdateOrderStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, status }) => updateOrderStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
+      updateOrderStatus(id, status),
     onSuccess: (order) => {
       qc.invalidateQueries({ queryKey: ['orders'] })
       qc.invalidateQueries({ queryKey: ['order', 'admin', order.id] })
@@ -49,16 +45,14 @@ export function useUpdateOrderStatus() {
   })
 }
 
-/**
- * Customer / guest: place an order. The server clears the
- * authenticated user's cart when `clearCart: true` is sent; for
- * guests we drop the localStorage cart on success here.
- */
+// Customer / guest: place an order. The server clears the authenticated user's
+// cart when `clearCart: true` is sent; for guests we drop the localStorage cart
+// on success here.
 export function useCreateOrder() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createOrder,
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['orders'] })
       if (variables?.clearCart) {
         qc.invalidateQueries({ queryKey: ['cart'] })
@@ -68,9 +62,7 @@ export function useCreateOrder() {
   })
 }
 
-/**
- * Customer: my orders list.
- */
+// Customer: my orders list.
 export function useMyOrders() {
   return useQuery({
     queryKey: ['orders', 'mine'],
@@ -78,20 +70,16 @@ export function useMyOrders() {
   })
 }
 
-/**
- * Customer: my order detail (server checks ownership).
- */
-export function useMyOrder(id) {
+// Customer: my order detail (server checks ownership).
+export function useMyOrder(id?: string) {
   return useQuery({
     queryKey: ['order', 'mine', id],
-    queryFn: () => getMyOrder(id),
+    queryFn: () => getMyOrder(id!),
     enabled: Boolean(id),
   })
 }
 
-/**
- * Customer: cancel a PENDING order.
- */
+// Customer: cancel a PENDING order.
 export function useCancelMyOrder() {
   const qc = useQueryClient()
   return useMutation({

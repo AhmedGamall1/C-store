@@ -19,7 +19,10 @@ export function useMyAddresses() {
   })
 }
 
-function useAddressMutation(mutationFn, { successMsg } = {}) {
+function useAddressMutation<V>(
+  mutationFn: (vars: V) => Promise<unknown>,
+  { successMsg }: { successMsg?: string } = {}
+) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn,
@@ -36,7 +39,8 @@ export function useCreateAddress() {
 
 export function useUpdateAddress() {
   return useAddressMutation(
-    ({ id, ...data }) => updateAddress(id, data),
+    ({ id, ...data }: { id: string } & Parameters<typeof updateAddress>[1]) =>
+      updateAddress(id, data),
     { successMsg: 'Address updated' }
   )
 }

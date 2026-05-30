@@ -2,10 +2,16 @@ import { toast } from 'sonner'
 import { isApiError } from './ApiError'
 import { t } from './messages'
 
+export interface ErrorMeta {
+  silent401?: boolean
+  silentError?: boolean
+  silentFieldErrors?: boolean
+}
+
 // One toast at most every 1.5s for the same code — prevents storms when
 // multiple parallel queries fail with the same network/5xx error.
-const recent = new Map()
-function shouldEmit(key) {
+const recent = new Map<string, number>()
+function shouldEmit(key: string): boolean {
   const now = Date.now()
   const last = recent.get(key) ?? 0
   if (now - last < 1500) return false
@@ -13,7 +19,7 @@ function shouldEmit(key) {
   return true
 }
 
-function buildLoginRedirect() {
+function buildLoginRedirect(): string {
   const here = window.location.pathname + window.location.search
   return `/login?redirect=${encodeURIComponent(here)}`
 }
@@ -24,11 +30,12 @@ function buildLoginRedirect() {
 //   silentError   — caller handles its own UX
 //   silentFieldErrors — don't toast on validation if we have field errors;
 //                       a form's useApiError will route them inline
-export function handleApiError(err, meta = {}) {
+export function handleApiError(err: unknown, meta: ErrorMeta = {}): void {
   if (!isApiError(err)) {
     // Non-ApiError flow — local throws (e.g. guest cart stock checks).
-    if (!meta.silentError && err?.message) {
-      toast.error(err.message)
+    const message = (err as { message?: string } | null)?.message
+    if (!meta.silentError && message) {
+      toast.error(message)
     }
     return
   }
@@ -41,10 +48,12 @@ export function handleApiError(err, meta = {}) {
       // Avoid bouncing if the user is already on /login or /register.
       const path = window.location.pathname
       if (path === '/login' || path === '/register') {
-        if (shouldEmit('UNAUTHORIZED')) toast.error(err.message || t('UNAUTHORIZED'))
+        if (shouldEmit('UNAUTHORIZED'))
+          toast.error(err.message || t('UNAUTHORIZED'))
         return
       }
-      if (shouldEmit('UNAUTHORIZED')) toast.error(err.message || t('UNAUTHORIZED'))
+      if (shouldEmit('UNAUTHORIZED'))
+        toast.error(err.message || t('UNAUTHORIZED'))
       // Full-page redirect kills any stale auth-dependent state.
       window.location.href = buildLoginRedirect()
       return

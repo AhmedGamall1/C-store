@@ -1,18 +1,19 @@
-import { ApiError } from './ApiError'
+import type { AxiosError } from 'axios'
+import { ApiError, type ApiFieldErrors } from './ApiError'
 import { t } from './messages'
 
 const PATH_PREFIXES = ['body.', 'params.', 'query.']
 
-function stripPrefix(path) {
+function stripPrefix(path: string): string {
   for (const p of PATH_PREFIXES) {
     if (path.startsWith(p)) return path.slice(p.length)
   }
   return path
 }
 
-function buildFieldErrors(errors) {
+function buildFieldErrors(errors: unknown): ApiFieldErrors | null {
   if (!Array.isArray(errors) || errors.length === 0) return null
-  const map = {}
+  const map: ApiFieldErrors = {}
   for (const item of errors) {
     if (!item || typeof item.path !== 'string') continue
     const key = stripPrefix(item.path)
@@ -21,7 +22,7 @@ function buildFieldErrors(errors) {
   return Object.keys(map).length ? map : null
 }
 
-function codeFor(status) {
+function codeFor(status: number): string {
   if (status === 0) return 'NETWORK'
   if (status === 401) return 'UNAUTHORIZED'
   if (status === 403) return 'FORBIDDEN'
@@ -32,7 +33,7 @@ function codeFor(status) {
   return 'GENERIC'
 }
 
-export function toApiError(axiosError) {
+export function toApiError(axiosError: AxiosError): ApiError {
   if (
     axiosError?.code === 'ERR_CANCELED' ||
     axiosError?.name === 'CanceledError'
@@ -54,16 +55,17 @@ export function toApiError(axiosError) {
     })
   }
 
-  const { status, data } = axiosError.response
+  const status = axiosError.response.status
+  const data = axiosError.response.data as
+    | { message?: string; errors?: unknown }
+    | null
+    | undefined
   const code = codeFor(status)
 
   // Anything that doesn't match { message: string } is a non-API body
   // (proxy HTML page, edge response, malformed JSON). We still surface a
   // sensible message but flag it so callers can drill into raw if needed.
-  const looksRight =
-    data && typeof data === 'object' && typeof data.message === 'string'
-
-  if (!looksRight) {
+  if (!data || typeof data !== 'object' || typeof data.message !== 'string') {
     return new ApiError({
       status,
       code,

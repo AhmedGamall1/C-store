@@ -11,12 +11,11 @@ import {
   forceDeleteProduct,
   toggleProductActive,
 } from '@/api/products'
+import type { ListParams } from '@/types/api'
 
-/**
- * Fetch paginated product list with filters.
- * filters — { page, limit, category, minPrice, maxPrice, search, sortBy, order }
- */
-export function useProducts(filters = {}) {
+// Fetch paginated product list with filters
+// (page, limit, category, minPrice, maxPrice, search, sortBy, order).
+export function useProducts(filters: ListParams = {}) {
   return useQuery({
     queryKey: ['products', filters],
     queryFn: () => getProducts(filters),
@@ -24,10 +23,8 @@ export function useProducts(filters = {}) {
   })
 }
 
-/**
- * Fetch paginated product list for admin (includes inactive).
- */
-export function useAdminProducts(filters = {}) {
+// Paginated product list for admin (includes inactive).
+export function useAdminProducts(filters: ListParams = {}) {
   return useQuery({
     queryKey: ['products', 'admin', filters],
     queryFn: () => getAdminProducts(filters),
@@ -35,29 +32,28 @@ export function useAdminProducts(filters = {}) {
   })
 }
 
-/**
- * Fetch a single product by ID for admin editing.
- */
-export function useAdminProduct(id) {
+// Single product by ID for admin editing.
+export function useAdminProduct(id?: string) {
   return useQuery({
     queryKey: ['product', 'admin', id],
-    queryFn: () => getAdminProduct(id),
+    queryFn: () => getAdminProduct(id!),
     enabled: Boolean(id),
   })
 }
 
-/**
- * Fetch a single product by slug (detail page).
- */
-export function useProduct(slug) {
+// Single product by slug (detail page).
+export function useProduct(slug?: string) {
   return useQuery({
     queryKey: ['product', slug],
-    queryFn: () => getProduct(slug),
+    queryFn: () => getProduct(slug!),
     enabled: Boolean(slug),
   })
 }
 
-function useProductMutation(mutationFn, { successMsg } = {}) {
+function useProductMutation<V>(
+  mutationFn: (vars: V) => Promise<unknown>,
+  { successMsg }: { successMsg?: string } = {}
+) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn,
@@ -75,31 +71,29 @@ export function useCreateProduct() {
 
 export function useUpdateProduct() {
   return useProductMutation(
-    ({ id, ...data }) => updateProduct(id, data),
+    ({ id, ...data }: { id: string } & Parameters<typeof updateProduct>[1]) =>
+      updateProduct(id, data),
     { successMsg: 'Product updated' }
   )
 }
 
-/**
- * Soft-delete a product (admin).
- */
+// Soft-delete a product (admin).
 export function useDeleteProduct() {
   return useProductMutation(deleteProduct, { successMsg: 'Product deleted' })
 }
 
-/**
- * Force (hard) delete a product (admin).
- */
+// Force (hard) delete a product (admin).
 export function useForceDeleteProduct() {
-  return useProductMutation(forceDeleteProduct, { successMsg: 'Product permanently deleted' })
+  return useProductMutation(forceDeleteProduct, {
+    successMsg: 'Product permanently deleted',
+  })
 }
 
-/**
- * Toggle product active status.
- */
+// Toggle product active status.
 export function useToggleProductActive() {
   return useProductMutation(
-    ({ id, isActive }) => toggleProductActive(id, isActive),
+    ({ id, isActive }: { id: string; isActive: boolean }) =>
+      toggleProductActive(id, isActive),
     { successMsg: 'Product status updated' }
   )
 }

@@ -1,6 +1,27 @@
 // Single error type the whole client deals with.
 // Extends Error so existing `err.message` reads keep working unchanged.
+export type ApiFieldErrors = Record<string, string>
+
+interface ApiErrorInit {
+  status: number
+  code: string
+  message: string
+  fieldErrors?: ApiFieldErrors | null
+  raw?: unknown
+  isNetworkError?: boolean
+  isUnknownShape?: boolean
+  isCanceled?: boolean
+}
+
 export class ApiError extends Error {
+  status: number
+  code: string
+  fieldErrors: ApiFieldErrors | null
+  raw: unknown
+  isNetworkError: boolean
+  isUnknownShape: boolean
+  isCanceled: boolean
+
   constructor({
     status,
     code,
@@ -10,7 +31,7 @@ export class ApiError extends Error {
     isNetworkError = false,
     isUnknownShape = false,
     isCanceled = false,
-  }) {
+  }: ApiErrorInit) {
     super(message)
     this.name = 'ApiError'
     this.status = status
@@ -31,6 +52,6 @@ export class ApiError extends Error {
   }
 }
 
-export function isApiError(err) {
+export function isApiError(err: unknown): err is ApiError {
   return err instanceof ApiError
 }

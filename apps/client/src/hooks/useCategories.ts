@@ -24,7 +24,10 @@ export function useAdminCategories() {
   })
 }
 
-function useCategoryMutation(mutationFn, { successMsg } = {}) {
+function useCategoryMutation<V>(
+  mutationFn: (vars: V) => Promise<unknown>,
+  { successMsg }: { successMsg?: string } = {}
+) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn,
@@ -41,9 +44,11 @@ export function useCreateCategory() {
 
 // Pass { id, ...fields } to mutate — matches the API signature cleanly.
 export function useUpdateCategory() {
-  return useCategoryMutation(({ id, ...data }) => updateCategory(id, data), {
-    successMsg: 'Category updated',
-  })
+  return useCategoryMutation(
+    ({ id, ...data }: { id: string } & Parameters<typeof updateCategory>[1]) =>
+      updateCategory(id, data),
+    { successMsg: 'Category updated' }
+  )
 }
 
 export function useDeleteCategory() {
@@ -52,7 +57,8 @@ export function useDeleteCategory() {
 
 export function useToggleCategoryActive() {
   return useCategoryMutation(
-    ({ id, isActive }) => toggleCategoryActive(id, isActive),
+    ({ id, isActive }: { id: string; isActive: boolean }) =>
+      toggleCategoryActive(id, isActive),
     { successMsg: 'Category status updated' }
   )
 }

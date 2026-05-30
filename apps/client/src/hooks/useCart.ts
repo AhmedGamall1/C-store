@@ -17,15 +17,23 @@ import {
   updateGuestItem,
   removeGuestItem,
   clearGuestCart,
+  type GuestCartItem,
 } from '@/lib/guestCart'
+import type {
+  Cart,
+  CartLine,
+  ServerCart,
+  ServerCartItem,
+  BulkVariant,
+} from '@/types/api'
 
-const EMPTY_CART = { items: [], total: 0, totalItems: 0 }
+const EMPTY_CART: Cart = { items: [], total: 0, totalItems: 0 }
 
 // ── Normalizers ────────────────────────────────────────
 // Both server-cart items and guest-cart items are flattened into the same
 // line-item shape so the rest of the app doesn't care which one backs it.
 
-function serverItemToLine(item) {
+function serverItemToLine(item: ServerCartItem): CartLine {
   const ps = item.productSize
   const color = ps.color
   const product = color.product
@@ -44,7 +52,7 @@ function serverItemToLine(item) {
   }
 }
 
-function normalizeServerCart(raw) {
+function normalizeServerCart(raw: ServerCart | null | undefined): Cart {
   if (!raw) return EMPTY_CART
   return {
     items: (raw.items ?? []).map(serverItemToLine),
@@ -53,10 +61,13 @@ function normalizeServerCart(raw) {
   }
 }
 
-function normalizeGuestCart(items, variants) {
+function normalizeGuestCart(
+  items: GuestCartItem[],
+  variants: BulkVariant[]
+): Cart {
   const byId = new Map(variants.map((v) => [v.id, v]))
   const lines = items
-    .map(({ productSizeId, quantity }) => {
+    .map(({ productSizeId, quantity }): CartLine | null => {
       const v = byId.get(productSizeId)
       if (!v) return null // variant was deleted on the server — hide silently
       const unitPrice = Number(v.price) || 0
@@ -69,35 +80,21 @@ function normalizeGuestCart(items, variants) {
         isActive: v.isActive,
         unitPrice,
         subtotal: unitPrice * quantity,
-        product: {
-          id: v.productId,
-          name: v.productName,
-          slug: v.productSlug,
-        },
-        color: {
-          id: v.colorId,
-          name: v.colorName,
-          imageUrl: v.colorImage,
-        },
+        product: { id: v.productId, name: v.productName, slug: v.productSlug },
+        color: { id: v.colorId, name: v.colorName, imageUrl: v.colorImage },
         imageUrl: v.colorImage,
       }
     })
-    .filter(Boolean)
-  const total = lines.reduce(
-    (s, i) => s + (i.isActive ? i.subtotal : 0),
-    0
-  )
-  const totalItems = lines.reduce(
-    (s, i) => s + (i.isActive ? i.quantity : 0),
-    0
-  )
+    .filter((line): line is CartLine => line !== null)
+  const total = lines.reduce((s, i) => s + (i.isActive ? i.subtotal : 0), 0)
+  const totalItems = lines.reduce((s, i) => s + (i.isActive ? i.quantity : 0), 0)
   return { items: lines, total, totalItems }
 }
 
 // ── Guest storage subscription ─────────────────────────
 
-function useGuestItems() {
-  const [items, setItems] = useState(() => getGuestItems())
+function useGuestItems(): GuestCartItem[] {
+  const [items, setItems] = useState<GuestCartItem[]>(() => getGuestItems())
   useEffect(() => subscribeGuestCart(setItems), [])
   return items
 }
@@ -144,7 +141,16 @@ export function useCart() {
 
 // ── Mutations (branching on auth) ──────────────────────
 
-function useCartMutation(mutationFn, { successMsg } = {}) {
+interface CartMutationArgs {
+  productSizeId: string
+  quantity?: number
+  stock?: number
+}
+
+function useCartMutation<V>(
+  mutationFn: (vars: V) => Promise<ServerCart | null>,
+  { successMsg }: { successMsg?: string } = {}
+) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn,
@@ -158,7 +164,11 @@ function useCartMutation(mutationFn, { successMsg } = {}) {
 export function useAddToCart() {
   const { isAuthenticated } = useAuth()
   return useCartMutation(
-    async ({ productSizeId, quantity = 1, stock }) => {
+    async ({
+      productSizeId,
+      quantity = 1,
+      stock,
+    }: CartMutationArgs): Promise<ServerCart | null> => {
       if (isAuthenticated) {
         return addCartItem({ productSizeId, quantity })
       }
@@ -191,22 +201,32 @@ export function useAddToCart() {
 
 export function useUpdateCartItem() {
   const { isAuthenticated } = useAuth()
-  return useCartMutation(async ({ productSizeId, quantity, stock }) => {
-    if (isAuthenticated) {
-      return updateCartItem({ productSizeId, quantity })
+  return useCartMutation(
+    async ({
+      productSizeId,
+      quantity,
+      stock,
+    }: {
+      productSizeId: string
+      quantity: number
+      stock?: number
+    }): Promise<ServerCart | null> => {
+      if (isAuthenticated) {
+        return updateCartItem({ productSizeId, quantity })
+      }
+      if (typeof stock === 'number' && quantity > stock) {
+        throw new Error(`Only ${stock} in stock.`)
+      }
+      updateGuestItem(productSizeId, quantity)
+      return null
     }
-    if (typeof stock === 'number' && quantity > stock) {
-      throw new Error(`Only ${stock} in stock.`)
-    }
-    updateGuestItem(productSizeId, quantity)
-    return null
-  })
+  )
 }
 
 export function useRemoveCartItem() {
   const { isAuthenticated } = useAuth()
   return useCartMutation(
-    async (productSizeId) => {
+    async (productSizeId: string): Promise<ServerCart | null> => {
       if (isAuthenticated) {
         return removeCartItem(productSizeId)
       }
@@ -220,7 +240,7 @@ export function useRemoveCartItem() {
 export function useClearCart() {
   const { isAuthenticated } = useAuth()
   return useCartMutation(
-    async () => {
+    async (): Promise<ServerCart | null> => {
       if (isAuthenticated) {
         return clearCart()
       }
