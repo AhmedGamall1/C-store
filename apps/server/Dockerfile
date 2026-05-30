@@ -16,6 +16,8 @@ COPY apps/server ./apps/server
 # Generate the Prisma Client
 RUN npm run db:generate -w apps/server
 
+# Compile TypeScript to dist/
+RUN npm run build -w apps/server
 
 
 # --------------- RUNTIME STAGE ---------------
