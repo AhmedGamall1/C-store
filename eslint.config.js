@@ -1,9 +1,10 @@
 import js from '@eslint/js'
+import tseslint from 'typescript-eslint'
 import reactPlugin from 'eslint-plugin-react'
 import reactHooksPlugin from 'eslint-plugin-react-hooks'
 import prettierConfig from 'eslint-config-prettier'
 
-export default [
+export default tseslint.config(
   js.configs.recommended,
 
   {
@@ -78,5 +79,26 @@ export default [
     },
   },
 
-  prettierConfig,
-]
+  // TypeScript files: use the typescript-eslint parser + recommended rules.
+  // Placed last so its overrides win over the core rules above for .ts/.tsx.
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [tseslint.configs.recommended],
+    rules: {
+      // TypeScript already catches undefined/unused at compile time.
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-namespace': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
+
+  prettierConfig
+)
