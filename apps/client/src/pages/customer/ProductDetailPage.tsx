@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router'
+import { useParams, useSearchParams, Link } from 'react-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Heart,
@@ -38,6 +38,8 @@ function totalStock(color) {
 
 export default function ProductDetailPage() {
   const { slug } = useParams()
+  const [searchParams] = useSearchParams()
+  const colorParam = searchParams.get('color')
   const addToCart = useAddToCart()
   const [quantity, setQuantity] = useState(1)
   const [selectedColorId, setSelectedColorId] = useState(null)
@@ -50,16 +52,19 @@ export default function ProductDetailPage() {
     refetch,
   } = useProduct(slug)
 
-  // Default to the first color on first load / when product changes
+  // Default to the first color on first load / when product changes.
+  // Prefer a color passed in the URL (?color=<id>) when it belongs to this product
+  // — that's how a color card on Shop All opens straight to its variant.
   useEffect(() => {
     if (product?.colors?.length) {
-      setSelectedColorId((prev) =>
-        prev && product.colors.some((c) => c.id === prev)
-          ? prev
-          : product.colors[0].id
-      )
+      setSelectedColorId((prev) => {
+        if (prev && product.colors.some((c) => c.id === prev)) return prev
+        const fromUrl =
+          colorParam && product.colors.find((c) => c.id === colorParam)
+        return fromUrl ? fromUrl.id : product.colors[0].id
+      })
     }
-  }, [product])
+  }, [product, colorParam])
 
   // Reset size + quantity whenever color changes
   useEffect(() => {

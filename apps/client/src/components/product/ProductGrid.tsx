@@ -1,7 +1,7 @@
 import { ProductCard } from './ProductCard'
 import { cn } from '@/lib/utils'
 
-export function ProductGrid({ products, className }) {
+export function ProductGrid({ products, expandColors, className }) {
   return (
     <div
       className={cn(
@@ -9,9 +9,15 @@ export function ProductGrid({ products, className }) {
         className
       )}
     >
-      {products.map((p) => (
-        <ProductCard key={p.id} product={p} />
-      ))}
+      {products.flatMap((p) =>
+        // Shop All shows one card per color; every other grid shows one per
+        // product. Products without colors always fall back to a single card.
+        expandColors && p.colors?.length
+          ? p.colors.map((c) => (
+              <ProductCard key={`${p.id}-${c.id}`} product={p} color={c} />
+            ))
+          : [<ProductCard key={p.id} product={p} />]
+      )}
     </div>
   )
 }

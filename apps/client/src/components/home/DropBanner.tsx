@@ -1,19 +1,7 @@
 import { Link } from 'react-router'
-import { ArrowRight, Loader2 } from 'lucide-react'
-import { useProducts } from '@/hooks/useProducts'
+import { ArrowRight } from 'lucide-react'
 
 export function DropBanner() {
-  // Use the newest product's real image as the banner visual.
-  const { data, isLoading } = useProducts({
-    limit: 1,
-    sortBy: 'createdAt',
-    order: 'desc',
-  })
-  const product = data?.products?.[0]
-
-  // Nothing to show yet — hide the banner instead of a broken image.
-  if (!isLoading && !product) return null
-
   return (
     <section className="container-page py-10">
       <Link
@@ -40,17 +28,12 @@ export function DropBanner() {
             </div>
           </div>
           <div className="relative">
-            {isLoading ? (
-              <div className="grid aspect-[4/3] w-full place-items-center md:h-full">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <img
-                src={product.imageUrl}
-                alt={product.name}
-                className="aspect-[4/3] w-full object-cover md:aspect-auto md:h-full"
-              />
-            )}
+            {/* Fixed brand asset */}
+            <img
+              src="/DROP-BANNER.webp"
+              alt="New arrivals — just dropped"
+              className="aspect-4/3 w-full object-cover md:aspect-auto md:h-full"
+            />
           </div>
         </div>
       </Link>

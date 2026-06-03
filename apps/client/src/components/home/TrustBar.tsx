@@ -1,4 +1,5 @@
 import { Banknote, CreditCard, ShieldCheck, Truck } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const ITEMS = [
   {
@@ -23,9 +24,9 @@ const ITEMS = [
   },
 ]
 
-export function TrustBar() {
+export function TrustBar({ className }) {
   return (
-    <section className="border-y bg-secondary/40">
+    <section className={cn('border-y bg-secondary/40', className)}>
       <div className="container-page grid grid-cols-2 gap-6 py-10 md:grid-cols-4">
         {ITEMS.map((item) => (
           <div key={item.title} className="flex items-start gap-3">

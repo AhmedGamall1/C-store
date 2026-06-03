@@ -217,7 +217,7 @@ export default function ShopPage() {
               </div>
             ) : (
               <>
-                <ProductGrid products={products} />
+                <ProductGrid products={products} expandColors />
                 <div className="pt-8">
                   <Pagination
                     page={pagination.page}

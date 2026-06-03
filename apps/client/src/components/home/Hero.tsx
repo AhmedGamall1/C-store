@@ -1,18 +1,8 @@
 import { Link } from 'react-router'
-import { ArrowRight, Loader2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useProducts } from '@/hooks/useProducts'
 
 export function Hero() {
-  // Reuse the same hook BestSellers uses. We only need the newest product
-  // for the hero image. React Query caches the result for us.
-  const { data, isLoading } = useProducts({
-    limit: 1,
-    sortBy: 'createdAt',
-    order: 'desc',
-  })
-  const main = data?.products?.[0]
-
   return (
     <section className="relative overflow-hidden border-b">
       <div className="container-page grid gap-10 py-16 md:grid-cols-2 md:gap-16 md:py-24 lg:py-28">
@@ -53,28 +43,18 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Image — the newest product from the catalog */}
-        <div className="relative">
-          {isLoading ? (
-            <div className="grid min-h-80 place-items-center rounded-lg bg-secondary">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : !main ? (
-            <div className="grid min-h-80 place-items-center rounded-lg bg-secondary text-sm text-muted-foreground">
-              Add products to see them here
-            </div>
-          ) : (
-            <Link
-              to={`/product/${main.slug}`}
-              className="block overflow-hidden rounded-lg bg-secondary"
-            >
-              <img
-                src={main.imageUrl}
-                alt={main.name}
-                className="aspect-[4/5] w-full object-cover transition-transform duration-500 hover:scale-105"
-              />
-            </Link>
-          )}
+        {/* Image — fixed brand asset. Hidden on mobile to keep the hero compact. */}
+        <div className="relative hidden md:block">
+          <Link
+            to="/shop"
+            className="block overflow-hidden rounded-lg bg-secondary"
+          >
+            <img
+              src="/HERO.webp"
+              alt="New 2026 collection"
+              className="aspect-4/5 w-full object-cover transition-transform duration-500 hover:scale-105"
+            />
+          </Link>
         </div>
       </div>
     </section>

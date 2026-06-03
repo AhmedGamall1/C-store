@@ -3,10 +3,10 @@ import { SectionHeader } from '@/components/common/SectionHeader'
 import { ProductGrid } from '@/components/product/ProductGrid'
 import { useProducts } from '@/hooks/useProducts'
 
-export function BestSellers() {
-  // Fetch newest 8 products — closest to "bestsellers" without a sales-count field
+export function NewArrivals() {
+  // Show the newest 5 products (most recently added).
   const { data, isLoading } = useProducts({
-    limit: 8,
+    limit: 5,
     sortBy: 'createdAt',
     order: 'desc',
   })
@@ -15,9 +15,9 @@ export function BestSellers() {
   return (
     <section className="container-page py-20">
       <SectionHeader
-        eyebrow="Most Wanted"
-        title="Bestsellers"
-        description="The pieces flying off the shelves this month."
+        eyebrow="Just In"
+        title="New Arrivals"
+        description="The latest pieces, fresh off the line."
         linkLabel="View all"
         linkTo="/shop"
       />

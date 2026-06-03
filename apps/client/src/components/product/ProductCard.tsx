@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn, formatEGP } from '@/lib/utils'
 
-export function ProductCard({ product, className }) {
+export function ProductCard({ product, color, className }) {
   const navigate = useNavigate()
 
   const soldOut = product.stock === 0
@@ -18,24 +18,33 @@ export function ProductCard({ product, className }) {
       )
     : 0
 
+  // When a specific color is passed (Shop All shows one card per color), use
+  // that color's image and append its name; otherwise fall back to the product
+  // cover. The link carries ?color=<id> so the detail page opens focused on it.
+  const cover = color ? color.imageUrl : product.imageUrl
+  const title = color ? `${product.name} ${color.name}` : product.name
+  const linkTo = color
+    ? `/product/${product.slug}?color=${color.id}`
+    : `/product/${product.slug}`
+
   // No quick-add: the cart needs a specific size/color, so send shoppers to
   // the detail page where they can pick a variant.
   const handleQuickAdd = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    navigate(`/product/${product.slug}`)
+    navigate(linkTo)
   }
 
   return (
     <article className={cn('group relative flex flex-col', className)}>
       <Link
-        to={`/product/${product.slug}`}
+        to={linkTo}
         className="relative block overflow-hidden rounded-md bg-secondary"
-        aria-label={product.name}
+        aria-label={title}
       >
         <img
-          src={product.imageUrl}
-          alt={product.name}
+          src={cover}
+          alt={title}
           loading="lazy"
           className="aspect-product w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
@@ -93,10 +102,10 @@ export function ProductCard({ product, className }) {
           {product.category.name}
         </p>
         <Link
-          to={`/product/${product.slug}`}
+          to={linkTo}
           className="line-clamp-1 text-sm font-medium hover:underline"
         >
-          {product.name}
+          {title}
         </Link>
         <div className="mt-auto flex items-baseline gap-2">
           <span className="text-sm font-semibold tabular">
