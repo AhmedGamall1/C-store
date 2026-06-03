@@ -22,7 +22,9 @@ export function ProductCard({ product, color, className }) {
   // that color's image and append its name; otherwise fall back to the product
   // cover. The link carries ?color=<id> so the detail page opens focused on it.
   const cover = color ? color.imageUrl : product.imageUrl
-  const title = color ? `${product.name} ${color.name}` : product.name
+  const title = color
+    ? `${product.name} ${color.name.toUpperCase()}`
+    : product.name
   const linkTo = color
     ? `/product/${product.slug}?color=${color.id}`
     : `/product/${product.slug}`
@@ -103,7 +105,7 @@ export function ProductCard({ product, color, className }) {
         </p>
         <Link
           to={linkTo}
-          className="line-clamp-1 text-sm font-medium hover:underline"
+          className="line-clamp-2 text-sm font-medium hover:underline"
         >
           {title}
         </Link>

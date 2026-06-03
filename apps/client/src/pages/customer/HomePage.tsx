@@ -8,11 +8,9 @@ export default function HomePage() {
   return (
     <>
       <Hero />
-      {/* Desktop: trust bar sits right under the hero */}
+      {/* Trust bar — tablet and up only, hidden on mobile */}
       <TrustBar className="hidden md:block" />
       <FeaturedCategories />
-      {/* Mobile: trust bar moves between categories and new arrivals */}
-      <TrustBar className="md:hidden" />
       <NewArrivals />
       <DropBanner />
     </>

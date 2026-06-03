@@ -9,9 +9,14 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { AdminSidebar } from './AdminSidebar'
-import { ADMIN_USER } from '@/data/user'
+import { useAuth } from '@/providers/AuthProvider'
 
 export function AdminTopbar() {
+  const { user } = useAuth()
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ')
+  const initials =
+    `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase()
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/90 px-4 backdrop-blur lg:px-8">
       {/* Mobile sidebar */}
@@ -44,14 +49,11 @@ export function AdminTopbar() {
         </Button>
         <div className="flex items-center gap-3 border-l pl-4">
           <div className="hidden text-right sm:block">
-            <p className="text-sm font-semibold">
-              {ADMIN_USER.firstName} {ADMIN_USER.lastName}
-            </p>
-            <p className="text-xs text-muted-foreground">{ADMIN_USER.email}</p>
+            <p className="text-sm font-semibold">{fullName}</p>
+            <p className="text-xs text-muted-foreground">{user?.email}</p>
           </div>
           <span className="grid h-9 w-9 place-items-center rounded-full bg-foreground text-sm font-semibold text-background">
-            {ADMIN_USER.firstName[0]}
-            {ADMIN_USER.lastName[0]}
+            {initials}
           </span>
         </div>
       </div>

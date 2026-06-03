@@ -45,10 +45,11 @@ export function ProductGallery({ images = [], alt }) {
 
       {/* Main */}
       <div className="order-1 group relative overflow-hidden rounded-lg border bg-secondary lg:order-2">
+        {/* Show the whole photo at its natural shape — never crop it */}
         <img
           src={main}
           alt={alt}
-          className="aspect-product w-full  object-cover"
+          className="h-auto w-full object-contain"
         />
 
         {images.length > 1 && (

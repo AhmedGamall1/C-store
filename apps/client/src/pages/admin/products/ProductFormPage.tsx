@@ -113,8 +113,12 @@ export default function ProductFormPage() {
     e.preventDefault()
     try {
       if (isEdit) {
-        await updateMutation.mutateAsync({
-          id,
+        // Only send fields that actually changed. Colors and sizes are saved
+        // by their own dialogs (they call the API directly), so if nothing in
+        // the base product changed there is nothing to send here — and an empty
+        // update is rejected by the server ("At least one field must be
+        // provided"). That was the bug: adding colors/sizes then pressing Save.
+        const patch = {
           name: name !== product.name ? name : undefined,
           description:
             description !== (product.description ?? '')
@@ -130,7 +134,14 @@ export default function ProductFormPage() {
             categoryId !== product.categoryId ? categoryId : undefined,
           isActive: isActive !== product.isActive ? isActive : undefined,
           imageFile: imageFile ?? undefined,
-        })
+        }
+
+        // Nothing changed on the product itself — just go back.
+        if (!Object.values(patch).some((v) => v !== undefined)) {
+          navigate('/admin/products')
+          return
+        }
+        await updateMutation.mutateAsync({ id, ...patch })
       } else {
         if (!imageFile) return
         await createMutation.mutateAsync({

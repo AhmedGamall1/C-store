@@ -212,6 +212,7 @@ export default function ProductDetailPage() {
               </div>
               <h1 className="font-display text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
                 {product.name}
+                {selectedColor ? ` ${selectedColor.name.toUpperCase()}` : ''}
               </h1>
               {reviewCount > 0 && (
                 <div className="flex items-center gap-3">
