@@ -1,0 +1,189 @@
+// ───────── C-Store ERD ─────────
+Enum role {
+  CUSTOMER
+  ADMIN
+}
+
+Enum order_status {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+Enum payment_status {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+Enum payment_method {
+  COD
+  PAYMOB
+}
+
+Table users {
+  id        uuid      [pk]
+  email     varchar   [unique, not null]
+  password  varchar   [not null]
+  firstName varchar   [not null]
+  lastName  varchar   [not null]
+  phone     varchar
+  role      role      [not null, default: 'CUSTOMER']
+  isActive  boolean   [not null, default: true]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+Table addresses {
+  id          uuid    [pk]
+  userId      uuid    [not null]
+  street      varchar [not null]
+  city        varchar [not null]
+  governorate varchar [not null]
+  isDefault   boolean [not null, default: false]
+}
+
+Table categories {
+  id            uuid      [pk]
+  name          varchar   [unique, not null]
+  slug          varchar   [unique, not null]
+  description   varchar
+  imageUrl      varchar   [not null]
+  imagePublicId varchar   [not null]
+  isActive      boolean   [not null, default: true]
+  createdAt     timestamp [not null, default: `now()`]
+}
+
+Table products {
+  id            uuid          [pk]
+  name          varchar       [not null]
+  slug          varchar       [unique, not null]
+  description   varchar
+  price         decimal(10,2) [not null]
+  comparePrice  decimal(10,2)
+  sku           varchar       [unique]
+  imageUrl      varchar       [not null]
+  imagePublicId varchar       [not null]
+  isActive      boolean       [not null, default: true]
+  categoryId    uuid          [not null]
+  createdAt     timestamp     [not null, default: `now()`]
+  updatedAt     timestamp     [not null]
+}
+
+Table product_colors {
+  id             uuid      [pk]
+  productId      uuid      [not null]
+  name           varchar   [not null]
+  hex            varchar
+  imageUrl       varchar   [not null]
+  imagePublicId  varchar   [not null]
+  images         text[]
+  imagePublicIds text[]
+  isActive       boolean   [not null, default: true]
+  createdAt      timestamp [not null, default: `now()`]
+  updatedAt      timestamp [not null]
+
+  indexes {
+    (productId, name) [unique]
+  }
+}
+
+Table product_sizes {
+  id        uuid          [pk]
+  colorId   uuid          [not null]
+  size      varchar       [not null]
+  stock     integer       [not null, default: 0]
+  sku       varchar       [unique]
+  price     decimal(10,2)
+  isActive  boolean       [not null, default: true]
+  createdAt timestamp     [not null, default: `now()`]
+  updatedAt timestamp     [not null]
+
+  indexes {
+    (colorId, size) [unique]
+  }
+}
+
+Table carts {
+  id        uuid      [pk]
+  userId    uuid      [unique, not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+Table cart_items {
+  id            uuid    [pk]
+  cartId        uuid    [not null]
+  productSizeId uuid    [not null]
+  quantity      integer [not null, default: 1]
+
+  indexes {
+    (cartId, productSizeId) [unique]
+  }
+}
+
+Table orders {
+  id                  uuid           [pk]
+  orderNumber         integer        [unique, not null, increment]
+  userId              uuid
+  addressId           uuid
+  guestEmail          varchar
+  guestName           varchar
+  guestPhone          varchar
+  shippingStreet      varchar
+  shippingCity        varchar
+  shippingGovernorate varchar
+  status              order_status   [not null, default: 'PENDING']
+  paymentStatus       payment_status [not null, default: 'UNPAID']
+  paymentMethod       payment_method [not null, default: 'COD']
+  reservedUntil       timestamp
+  subtotal            decimal(10,2)  [not null]
+  shippingCost        decimal(10,2)  [not null, default: 0]
+  total               decimal(10,2)  [not null]
+  paymobOrderId       varchar
+  notes               varchar
+  createdAt           timestamp      [not null, default: `now()`]
+  updatedAt           timestamp      [not null]
+}
+
+Table order_items {
+  id            uuid          [pk]
+  orderId       uuid          [not null]
+  productSizeId uuid          [not null]
+  quantity      integer       [not null]
+  price         decimal(10,2) [not null]
+  colorName     varchar       [not null]
+  colorHex      varchar
+  size          varchar       [not null]
+}
+
+Table reviews {
+  id        uuid      [pk]
+  userId    uuid      [not null]
+  productId uuid      [not null]
+  rating    integer   [not null]
+  comment   varchar
+  createdAt timestamp [not null, default: `now()`]
+
+  indexes {
+    (userId, productId) [unique]
+  }
+}
+
+// ───────── Relationships ─────────
+Ref: addresses.userId > users.id [delete: cascade]
+Ref: products.categoryId > categories.id
+Ref: product_colors.productId > products.id [delete: cascade]
+Ref: product_sizes.colorId > product_colors.id [delete: cascade]
+Ref: carts.userId - users.id [delete: cascade]
+Ref: cart_items.cartId > carts.id [delete: cascade]
+Ref: cart_items.productSizeId > product_sizes.id
+Ref: orders.userId > users.id
+Ref: orders.addressId > addresses.id
+Ref: order_items.orderId > orders.id [delete: cascade]
+Ref: order_items.productSizeId > product_sizes.id
+Ref: reviews.userId > users.id
+Ref: reviews.productId > products.id
