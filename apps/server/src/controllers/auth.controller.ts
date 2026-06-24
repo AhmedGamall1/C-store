@@ -39,6 +39,18 @@ export const login = async (req: Request, res: Response) => {
   sendTokenResponse(user, 200, res)
 }
 
+// POST /api/auth/verify-email
+export const verifyEmail = async (req: Request, res: Response) => {
+  await authService.verifyEmail(req.body.token)
+  res.json({ status: 'success', message: 'Email verified successfully' })
+}
+
+// POST /api/auth/resend-verification
+export const resendVerification = async (req: Request, res: Response) => {
+  await authService.resendVerification(req.user!)
+  res.json({ status: 'success', message: 'Verification email sent' })
+}
+
 // GET /api/auth/me
 export const getMe = async (req: Request, res: Response) => {
   const user = await userRepo.findPublicUserById(req.user!.id)

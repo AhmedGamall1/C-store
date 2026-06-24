@@ -1,7 +1,11 @@
 import bcrypt from 'bcrypt'
 import AppError from '../utils/AppError.js'
 import * as userRepo from '../repositories/user.repository.js'
-import { createEmailVerifyToken } from './verification.service.js'
+import {
+  createEmailVerifyToken,
+  consumeEmailVerifyToken,
+} from './verification.service.js'
+import type { User } from '@prisma/client'
 import { sendVerificationEmail } from './email.service.js'
 import type { RegisterInput, LoginInput } from '../schemas/auth.schema.js'
 
@@ -31,4 +35,16 @@ export const login = async ({ email, password }: LoginInput) => {
   if (!user.isActive)
     throw new AppError('Your account has been deactivated', 403)
   return user
+}
+
+export const verifyEmail = async (token: string) => {
+  const userId = await consumeEmailVerifyToken(token)
+  if (!userId) throw new AppError('Invalid or expired verification link', 400)
+  await userRepo.markEmailVerified(userId)
+}
+
+export const resendVerification = async (user: User) => {
+  if (user.emailVerified) throw new AppError('Email is already verified', 400)
+  const rawToken = await createEmailVerifyToken(user.id)
+  await sendVerificationEmail(user.email, rawToken)
 }

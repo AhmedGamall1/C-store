@@ -28,3 +28,6 @@ export const createUserWithCart = (data: Prisma.UserCreateArgs['data']) =>
     await tx.cart.create({ data: { userId: user.id } })
     return user
   })
+
+export const markEmailVerified = (id: string) =>
+  prisma.user.update({ where: { id }, data: { emailVerified: true } })
