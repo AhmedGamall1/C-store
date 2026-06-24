@@ -3,10 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { VerifyEmailNotice } from '@/components/auth/VerifyEmailNotice'
+import { useNeedsVerification } from '@/hooks/useVerification'
 import { CURRENT_USER } from '@/data/user'
 import { formatDate } from '@/lib/utils'
 
 export default function ProfilePage() {
+  const needsVerification = useNeedsVerification()
   const [form, setForm] = useState({
     firstName: CURRENT_USER.firstName,
     lastName: CURRENT_USER.lastName,
@@ -19,6 +22,10 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-10">
+      {needsVerification ? (
+        <VerifyEmailNotice message="Please verify your email to update your profile." />
+      ) : null}
+
       <section>
         <div className="flex items-baseline justify-between">
           <div>
@@ -79,7 +86,9 @@ export default function ProfilePage() {
           </div>
 
           <div className="sm:col-span-2">
-            <Button type="submit">Save changes</Button>
+            <Button type="submit" disabled={needsVerification}>
+              Save changes
+            </Button>
           </div>
         </form>
       </section>
@@ -104,7 +113,7 @@ export default function ProfilePage() {
             <Input id="new" name="new" type="password" />
           </div>
           <div>
-            <Button type="submit" variant="outline">
+            <Button type="submit" variant="outline" disabled={needsVerification}>
               Update password
             </Button>
           </div>

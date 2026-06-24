@@ -32,6 +32,8 @@ import { OrderSummary } from '@/components/checkout/OrderSummary'
 import { AddressFormDialog } from '@/components/checkout/AddressFormDialog'
 import { useCart } from '@/hooks/useCart'
 import { useAuth } from '@/providers/AuthProvider'
+import { useNeedsVerification } from '@/hooks/useVerification'
+import { VerifyEmailNotice } from '@/components/auth/VerifyEmailNotice'
 import { useMyAddresses } from '@/hooks/useAddresses'
 import { useShippingRates } from '@/hooks/useShipping'
 import { useCreateOrder } from '@/hooks/useOrders'
@@ -51,6 +53,7 @@ const govSlug = (name) =>
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
+  const needsVerification = useNeedsVerification()
   const { cart, isLoading: cartLoading } = useCart()
   const { data: shippingRates } = useShippingRates()
   const { data: addresses, isLoading: addressesLoading } = useMyAddresses()
@@ -225,6 +228,12 @@ export default function CheckoutPage() {
         </div>
       ) : null}
 
+      {needsVerification ? (
+        <div className="mt-8">
+          <VerifyEmailNotice message="Please verify your email to place your order. Check your inbox for the verification link." />
+        </div>
+      ) : null}
+
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_380px]">
         <div className="space-y-8">
           {step === 0 ? (
@@ -298,7 +307,8 @@ export default function CheckoutPage() {
                 disabled={
                   !stepValid ||
                   createOrder.isPending ||
-                  blockedLines.length > 0
+                  blockedLines.length > 0 ||
+                  needsVerification
                 }
               >
                 {createOrder.isPending ? (

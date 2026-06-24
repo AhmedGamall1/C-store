@@ -8,5 +8,8 @@
   "SERVER": "Something went wrong on our end. Please try again.",
   "GENERIC": "Something went wrong.",
   "RETRY": "Try again",
-  "UNEXPECTED": "Unexpected response from the server."
+  "UNEXPECTED": "Unexpected response from the server.",
+  "VERIFY_EMAIL_REQUIRED": "Please verify your email to continue.",
+  "VERIFY_EMAIL_RESEND": "Resend email",
+  "VERIFY_EMAIL_SENT": "Verification email sent. Check your inbox."
 }

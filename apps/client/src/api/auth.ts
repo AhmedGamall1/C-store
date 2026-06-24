@@ -14,6 +14,10 @@ interface RegisterInput {
   password: string
 }
 
+interface VerifyEmailInput {
+  token: string
+}
+
 export async function login({ email, password }: LoginInput): Promise<User> {
   const res = await api.post<{ data: { user: User } }>('/auth/login', {
     email,
@@ -46,4 +50,15 @@ export async function logout(): Promise<unknown> {
 export async function getMe(): Promise<User> {
   const res = await api.get<{ data: { user: User } }>('/auth/me')
   return res.data.user
+}
+
+// Confirm an email address from the link sent on register. The token is
+// single-use; a used/expired token returns 400.
+export async function verifyEmail(token: VerifyEmailInput['token']): Promise<void> {
+  await api.post('/auth/verify-email', { token })
+}
+
+// Re-send the verification email to the logged-in user (cookie auth, no body).
+export async function resendVerification(): Promise<void> {
+  await api.post('/auth/resend-verification')
 }

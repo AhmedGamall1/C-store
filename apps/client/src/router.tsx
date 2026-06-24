@@ -14,6 +14,7 @@ import CheckoutPage from '@/pages/customer/CheckoutPage'
 import OrderConfirmationPage from '@/pages/customer/OrderConfirmationPage'
 import LoginPage from '@/pages/customer/LoginPage'
 import RegisterPage from '@/pages/customer/RegisterPage'
+import VerifyEmailPage from '@/pages/customer/VerifyEmailPage'
 
 import ProfilePage from '@/pages/customer/account/ProfilePage'
 import OrdersPage from '@/pages/customer/account/OrdersPage'
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
   // Public auth routes (full-bleed, no layout)
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
+  { path: '/verify-email', element: <VerifyEmailPage /> },
 
   // Customer storefront — public
   {

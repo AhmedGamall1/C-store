@@ -4,15 +4,25 @@ import { Separator } from '@/components/ui/separator'
 import { formatDate } from '@/lib/utils'
 import { EmptyState } from '@/components/common/EmptyState'
 import { MessageSquare } from 'lucide-react'
+import { useNeedsVerification } from '@/hooks/useVerification'
 
 export function Reviews({ reviews = [], rating = 0, total = 0 }) {
+  const needsVerification = useNeedsVerification()
+  const writeHint = needsVerification
+    ? 'Verify your email to write a review'
+    : undefined
+
   if (reviews.length === 0) {
     return (
       <EmptyState
         icon={MessageSquare}
         title="No reviews yet"
         description="Be the first to share your thoughts on this piece."
-        action={<Button>Write a review</Button>}
+        action={
+          <Button disabled={needsVerification} title={writeHint}>
+            Write a review
+          </Button>
+        }
       />
     )
   }
@@ -30,7 +40,12 @@ export function Reviews({ reviews = [], rating = 0, total = 0 }) {
             {total} reviews
           </p>
         </div>
-        <Button variant="outline" className="w-full">
+        <Button
+          variant="outline"
+          className="w-full"
+          disabled={needsVerification}
+          title={writeHint}
+        >
           Write a review
         </Button>
       </div>

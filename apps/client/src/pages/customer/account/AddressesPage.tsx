@@ -19,17 +19,20 @@ import {
 } from '@/components/ui/dialog'
 import { EmptyState } from '@/components/common/EmptyState'
 import { AddressFormDialog } from '@/components/checkout/AddressFormDialog'
+import { VerifyEmailNotice } from '@/components/auth/VerifyEmailNotice'
 import {
   useDeleteAddress,
   useMyAddresses,
   useSetDefaultAddress,
 } from '@/hooks/useAddresses'
+import { useNeedsVerification } from '@/hooks/useVerification'
 import { cn } from '@/lib/utils'
 
 export default function AddressesPage() {
   const { data: addresses = [], isLoading } = useMyAddresses()
   const setDefault = useSetDefaultAddress()
   const remove = useDeleteAddress()
+  const needsVerification = useNeedsVerification()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -64,11 +67,17 @@ export default function AddressesPage() {
             Add up to 5 addresses to speed up checkout.
           </p>
         </div>
-        <Button onClick={startAdd}>
+        <Button onClick={startAdd} disabled={needsVerification}>
           <Plus className="h-4 w-4" />
           New address
         </Button>
       </div>
+
+      {needsVerification ? (
+        <div className="mt-6">
+          <VerifyEmailNotice message="Please verify your email to add or change your saved addresses." />
+        </div>
+      ) : null}
 
       {isLoading ? (
         <div className="mt-10 flex justify-center">
@@ -81,7 +90,7 @@ export default function AddressesPage() {
             title="No addresses saved yet"
             description="Add your first address so checkout is one tap."
             action={
-              <Button onClick={startAdd}>
+              <Button onClick={startAdd} disabled={needsVerification}>
                 <Plus className="h-4 w-4" />
                 Add address
               </Button>
@@ -126,7 +135,7 @@ export default function AddressesPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setDefault.mutate(a.id)}
-                    disabled={setDefault.isPending}
+                    disabled={setDefault.isPending || needsVerification}
                   >
                     <Star className="h-4 w-4" />
                     Set default
@@ -136,6 +145,7 @@ export default function AddressesPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => startEdit(a)}
+                  disabled={needsVerification}
                 >
                   <Pencil className="h-4 w-4" />
                   Edit
@@ -146,6 +156,7 @@ export default function AddressesPage() {
                     size="sm"
                     className="ml-auto text-destructive hover:text-destructive"
                     onClick={() => setConfirmDelete(a)}
+                    disabled={needsVerification}
                   >
                     <Trash2 className="h-4 w-4" />
                     Remove

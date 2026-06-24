@@ -1,6 +1,27 @@
 import { toast } from 'sonner'
-import { isApiError } from './ApiError'
+import { isApiError, type ApiError } from './ApiError'
 import { t } from './messages'
+import { resendVerification } from '@/api/auth'
+
+// The backend blocks unverified logged-in users with a 403 whose message
+// contains "verify your email" (cart/address/order/etc.). Detect it so we can
+// show a friendlier toast with a one-tap "Resend email" action.
+function isVerifyEmailError(err: ApiError): boolean {
+  return err.code === 'FORBIDDEN' && /verify your email/i.test(err.message)
+}
+
+function toastVerifyEmail(err: ApiError): void {
+  toast.error(err.message || t('VERIFY_EMAIL_REQUIRED'), {
+    action: {
+      label: t('VERIFY_EMAIL_RESEND'),
+      onClick: () => {
+        resendVerification()
+          .then(() => toast.success(t('VERIFY_EMAIL_SENT')))
+          .catch((e) => handleApiError(e))
+      },
+    },
+  })
+}
 
 export interface ErrorMeta {
   silent401?: boolean
@@ -60,6 +81,10 @@ export function handleApiError(err: unknown, meta: ErrorMeta = {}): void {
     }
 
     case 'FORBIDDEN':
+      if (isVerifyEmailError(err)) {
+        if (shouldEmit('VERIFY_EMAIL')) toastVerifyEmail(err)
+        return
+      }
       if (shouldEmit('FORBIDDEN')) toast.error(err.message || t('FORBIDDEN'))
       return
 

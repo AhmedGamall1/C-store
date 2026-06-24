@@ -25,6 +25,8 @@ import { SectionHeader } from '@/components/common/SectionHeader'
 import { useProduct, useProducts } from '@/hooks/useProducts'
 import { formatEGP } from '@/lib/utils'
 import { useAddToCart } from '@/hooks/useCart'
+import { useNeedsVerification } from '@/hooks/useVerification'
+import { VerifyEmailNotice } from '@/components/auth/VerifyEmailNotice'
 import { ErrorView } from '@/components/common/ErrorView'
 
 function avgRating(reviews = []) {
@@ -41,6 +43,7 @@ export default function ProductDetailPage() {
   const [searchParams] = useSearchParams()
   const colorParam = searchParams.get('color')
   const addToCart = useAddToCart()
+  const needsVerification = useNeedsVerification()
   const [quantity, setQuantity] = useState(1)
   const [selectedColorId, setSelectedColorId] = useState(null)
   const [selectedSizeId, setSelectedSizeId] = useState(null)
@@ -150,7 +153,7 @@ export default function ProductDetailPage() {
     !soldOut && !colorSoldOut && Boolean(selectedSize) && selectedSize.stock > 0
 
   const handleAddToCart = () => {
-    if (!selectedSize) return
+    if (!selectedSize || needsVerification) return
     addToCart.mutate({
       productSizeId: selectedSize.id,
       quantity,
@@ -302,7 +305,9 @@ export default function ProductDetailPage() {
               <Button
                 size="xl"
                 className="flex-1"
-                disabled={!canAddToCart || addToCart.isPending}
+                disabled={
+                  !canAddToCart || addToCart.isPending || needsVerification
+                }
                 onClick={handleAddToCart}
               >
                 {addToCart.isPending ? (
@@ -324,6 +329,10 @@ export default function ProductDetailPage() {
                 <Heart className="h-4 w-4" />
               </Button>
             </div>
+
+            {needsVerification ? (
+              <VerifyEmailNotice message="Please verify your email to add items to your cart." />
+            ) : null}
 
             {/* Stock indicator for currently selected variant */}
             {selectedSize && selectedSize.stock > 0 && selectedSize.stock < 10 ? (
