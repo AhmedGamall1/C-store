@@ -1,8 +1,7 @@
-import bcrypt from 'bcrypt'
+import * as authService from '../services/auth.service.js'
 import jwt, { type SignOptions } from 'jsonwebtoken'
 import type { Request, Response, CookieOptions } from 'express'
 import type { Role, User } from '@prisma/client'
-import AppError from '../utils/AppError.js'
 import { env } from '../config/env.js'
 import * as userRepo from '../repositories/user.repository.js'
 
@@ -30,36 +29,13 @@ const sendTokenResponse = (user: User, statusCode: number, res: Response) => {
 
 // POST /api/auth/register
 export const register = async (req: Request, res: Response) => {
-  const { firstName, lastName, email, password, phone } = req.body
-
-  const existing = await userRepo.findUserByEmail(email)
-  if (existing) throw new AppError('User already exists', 409)
-
-  const hashed = await bcrypt.hash(password, 12)
-
-  const user = await userRepo.createUserWithCart({
-    email,
-    password: hashed,
-    firstName,
-    lastName,
-    phone,
-  })
-
+  const user = await authService.register(req.body)
   sendTokenResponse(user, 201, res)
 }
 
 // POST /api/auth/login
 export const login = async (req: Request, res: Response) => {
-  const { email, password } = req.body
-
-  const user = await userRepo.findUserByEmail(email)
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    throw new AppError('Invalid email or password', 401)
-  }
-  if (!user.isActive) {
-    throw new AppError('Your account has been deactivated', 403)
-  }
-
+  const user = await authService.login(req.body)
   sendTokenResponse(user, 200, res)
 }
 
