@@ -42,6 +42,10 @@ const EnvSchema = z.object({
 
   // Redis
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
+
+  // Email (Gmail)
+  GMAIL_USER: z.string().email(),
+  GMAIL_APP_PASSWORD: z.string().min(16),
 })
 
 const parsed = EnvSchema.safeParse(process.env)
