@@ -9,7 +9,9 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env') })
 
 const EnvSchema = z.object({
   // Runtime
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
 
   // URLs
@@ -37,6 +39,9 @@ const EnvSchema = z.object({
   PAYMOB_INTEGRATION_ID: z.coerce.number().int().positive(),
   PAYMOB_IFRAME_ID: z.string().min(1),
   PAYMOB_HMAC_SECRET: z.string().min(1),
+
+  // Redis
+  REDIS_URL: z.string().url().default('redis://localhost:6379'),
 })
 
 const parsed = EnvSchema.safeParse(process.env)

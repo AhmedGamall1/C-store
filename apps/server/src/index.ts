@@ -1,6 +1,7 @@
 import { env } from './config/env.js'
 import app from './app.js'
 import prisma from './config/database.js'
+import redis from './config/redis.js'
 import { startStockExpiryJob } from './jobs/stockExpiry.job.js'
 
 const server = app.listen(env.PORT, () => {
@@ -28,6 +29,7 @@ const shutdown = async (signal: string) => {
     }
     try {
       await prisma.$disconnect()
+      await redis.quit()
       console.log('[shutdown] Clean exit')
       process.exit(0)
     } catch (e) {
