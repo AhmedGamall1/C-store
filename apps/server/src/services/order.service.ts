@@ -51,6 +51,11 @@ export const createOrder = async (
   user: User | null | undefined,
   body: CreateOrderBody
 ) => {
+  // Guests may order; logged-in users must have a verified email.
+  if (user && !user.emailVerified) {
+    throw new AppError('Please verify your email to place an order', 403)
+  }
+
   const { paymentMethod, items, notes, clearCart } = body
 
   // --- address / governorate resolution ---

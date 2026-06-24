@@ -6,7 +6,7 @@ import {
   deleteAddress,
   setDefaultAddress,
 } from '../controllers/address.controller.js'
-import { protect } from '../middlewares/auth.middleware.js'
+import { protect, requireVerified } from '../middlewares/auth.middleware.js'
 import { validate } from '../middlewares/validate.middleware.js'
 import {
   createAddressBodySchema,
@@ -20,18 +20,30 @@ router.use(protect)
 
 router.get('/', getMyAddresses)
 
-router.post('/', validate({ body: createAddressBodySchema }), createAddress)
+router.post(
+  '/',
+  requireVerified,
+  validate({ body: createAddressBodySchema }),
+  createAddress
+)
 
 router.put(
   '/:id',
+  requireVerified,
   validate({ params: idParamSchema, body: updateAddressBodySchema }),
   updateAddress
 )
 
-router.delete('/:id', validate({ params: idParamSchema }), deleteAddress)
+router.delete(
+  '/:id',
+  requireVerified,
+  validate({ params: idParamSchema }),
+  deleteAddress
+)
 
 router.patch(
   '/:id/default',
+  requireVerified,
   validate({ params: idParamSchema }),
   setDefaultAddress
 )

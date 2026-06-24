@@ -7,7 +7,7 @@ import {
   removeItem,
   mergeCart,
 } from '../controllers/cart.controller.js'
-import { protect } from '../middlewares/auth.middleware.js'
+import { protect, requireVerified } from '../middlewares/auth.middleware.js'
 import { validate } from '../middlewares/validate.middleware.js'
 import {
   addItemBodySchema,
@@ -22,12 +22,23 @@ router.use(protect)
 
 router.get('/', getCart)
 
-router.post('/items', validate({ body: addItemBodySchema }), addItem)
+router.post(
+  '/items',
+  requireVerified,
+  validate({ body: addItemBodySchema }),
+  addItem
+)
 
-router.post('/merge', validate({ body: mergeCartBodySchema }), mergeCart)
+router.post(
+  '/merge',
+  requireVerified,
+  validate({ body: mergeCartBodySchema }),
+  mergeCart
+)
 
 router.patch(
   '/items/:productSizeId',
+  requireVerified,
   validate({
     params: productSizeIdParamSchema,
     body: updateItemBodySchema,
@@ -37,10 +48,11 @@ router.patch(
 
 router.delete(
   '/items/:productSizeId',
+  requireVerified,
   validate({ params: productSizeIdParamSchema }),
   removeItem
 )
 
-router.delete('/', clearCart)
+router.delete('/', requireVerified, clearCart)
 
 export default router

@@ -37,6 +37,14 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
   next()
 }
 
+// Run AFTER `protect`: block logged-in users who have not verified their email.
+export const requireVerified: RequestHandler = (req, res, next) => {
+  if (!req.user?.emailVerified) {
+    throw new AppError('Please verify your email first', 403)
+  }
+  next()
+}
+
 export const restrictTo =
   (...roles: Role[]): RequestHandler =>
   (req, res, next) => {

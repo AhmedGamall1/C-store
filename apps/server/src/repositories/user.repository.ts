@@ -9,6 +9,7 @@ const PUBLIC_USER_SELECT = {
   phone: true,
   role: true,
   isActive: true,
+  emailVerified: true,
   createdAt: true,
 } satisfies Prisma.UserSelect
 
