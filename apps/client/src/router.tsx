@@ -15,6 +15,8 @@ import OrderConfirmationPage from '@/pages/customer/OrderConfirmationPage'
 import LoginPage from '@/pages/customer/LoginPage'
 import RegisterPage from '@/pages/customer/RegisterPage'
 import VerifyEmailPage from '@/pages/customer/VerifyEmailPage'
+import ForgotPasswordPage from '@/pages/customer/ForgotPasswordPage'
+import ResetPasswordPage from '@/pages/customer/ResetPasswordPage'
 
 import ProfilePage from '@/pages/customer/account/ProfilePage'
 import OrdersPage from '@/pages/customer/account/OrdersPage'
@@ -35,6 +37,8 @@ export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <RegisterPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
 
   // Customer storefront — public
   {

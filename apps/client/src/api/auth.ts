@@ -18,6 +18,15 @@ interface VerifyEmailInput {
   token: string
 }
 
+interface ForgotPasswordInput {
+  email: string
+}
+
+interface ResetPasswordInput {
+  token: string
+  password: string
+}
+
 export async function login({ email, password }: LoginInput): Promise<User> {
   const res = await api.post<{ data: { user: User } }>('/auth/login', {
     email,
@@ -61,4 +70,28 @@ export async function verifyEmail(token: VerifyEmailInput['token']): Promise<voi
 // Re-send the verification email to the logged-in user (cookie auth, no body).
 export async function resendVerification(): Promise<void> {
   await api.post('/auth/resend-verification')
+}
+
+// Request a password-reset email. The server ALWAYS returns 200 with a generic
+// message and never reveals whether the email exists — surface the message as-is.
+export async function forgotPassword(
+  email: ForgotPasswordInput['email']
+): Promise<string> {
+  const res = await api.post<{ message: string }>('/auth/forgot-password', {
+    email,
+  })
+  return res.message
+}
+
+// Set a new password using the token from the reset email. Returns the success
+// message; a used/expired token returns 400.
+export async function resetPassword(
+  token: ResetPasswordInput['token'],
+  password: ResetPasswordInput['password']
+): Promise<string> {
+  const res = await api.post<{ message: string }>('/auth/reset-password', {
+    token,
+    password,
+  })
+  return res.message
 }

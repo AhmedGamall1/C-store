@@ -11,5 +11,7 @@
   "UNEXPECTED": "Unexpected response from the server.",
   "VERIFY_EMAIL_REQUIRED": "Please verify your email to continue.",
   "VERIFY_EMAIL_RESEND": "Resend email",
-  "VERIFY_EMAIL_SENT": "Verification email sent. Check your inbox."
+  "VERIFY_EMAIL_SENT": "Verification email sent. Check your inbox.",
+  "FORGOT_PASSWORD_SENT": "If that email exists, a reset link has been sent.",
+  "RESET_PASSWORD_SUCCESS": "Password reset successfully. Please log in."
 }
