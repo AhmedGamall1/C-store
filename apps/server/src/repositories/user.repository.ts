@@ -32,3 +32,6 @@ export const createUserWithCart = (data: Prisma.UserCreateArgs['data']) =>
 
 export const markEmailVerified = (id: string) =>
   prisma.user.update({ where: { id }, data: { emailVerified: true } })
+
+export const updatePassword = (id: string, password: string) =>
+  prisma.user.update({ where: { id }, data: { password } })

@@ -64,3 +64,21 @@ export const logout = (req: Request, res: Response) => {
     message: 'Logged out successfully',
   })
 }
+
+// POST /api/auth/forget-password
+export const forgotPassword = async (req: Request, res: Response) => {
+  await authService.forgotPassword(req.body.email)
+  res.json({
+    status: 'success',
+    message: 'If that email exists, a reset link has been sent.',
+  })
+}
+
+// POST /api/auth/reset-password
+export const resetPassword = async (req: Request, res: Response) => {
+  await authService.resetPassword(req.body.token, req.body.password)
+  res.json({
+    status: 'success',
+    message: 'Password reset successfully. Please log in.',
+  })
+}

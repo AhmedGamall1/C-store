@@ -4,9 +4,14 @@ import * as userRepo from '../repositories/user.repository.js'
 import {
   createEmailVerifyToken,
   consumeEmailVerifyToken,
+  createPasswordResetToken,
+  consumePasswordResetToken,
 } from './verification.service.js'
 import type { User } from '@prisma/client'
-import { sendVerificationEmail } from './email.service.js'
+import {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from './email.service.js'
 import type { RegisterInput, LoginInput } from '../schemas/auth.schema.js'
 
 export const register = async (input: RegisterInput) => {
@@ -47,4 +52,23 @@ export const resendVerification = async (user: User) => {
   if (user.emailVerified) throw new AppError('Email is already verified', 400)
   const rawToken = await createEmailVerifyToken(user.id)
   await sendVerificationEmail(user.email, rawToken)
+}
+
+export const forgotPassword = async (email: string) => {
+  const user = await userRepo.findUserByEmail(email)
+  if (user) {
+    const rawToken = await createPasswordResetToken(user.id)
+    try {
+      await sendPasswordResetEmail(user.email, rawToken)
+    } catch (err) {
+      console.error('Failed to send reset email:', err)
+    }
+  }
+}
+
+export const resetPassword = async (token: string, newPassword: string) => {
+  const userId = await consumePasswordResetToken(token)
+  if (!userId) throw new AppError('Invalid or expired reset link', 400)
+  const password = await bcrypt.hash(newPassword, 12)
+  await userRepo.updatePassword(userId, password)
 }

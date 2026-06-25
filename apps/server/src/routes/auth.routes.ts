@@ -6,6 +6,8 @@ import {
   logout,
   verifyEmail,
   resendVerification,
+  forgotPassword,
+  resetPassword,
 } from '../controllers/auth.controller.js'
 import { protect } from '../middlewares/auth.middleware.js'
 import { validate } from '../middlewares/validate.middleware.js'
@@ -13,6 +15,8 @@ import {
   registerSchema,
   loginSchema,
   verifyEmailSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from '../schemas/auth.schema.js'
 
 const router = Router()
@@ -22,6 +26,16 @@ router.post('/verify-email', validate({ body: verifyEmailSchema }), verifyEmail)
 router.post('/resend-verification', protect, resendVerification)
 router.post('/login', validate({ body: loginSchema }), login)
 router.post('/logout', protect, logout)
+router.post(
+  '/forgot-password',
+  validate({ body: forgotPasswordSchema }),
+  forgotPassword
+)
+router.post(
+  '/reset-password',
+  validate({ body: resetPasswordSchema }),
+  resetPassword
+)
 router.get('/me', protect, getMe)
 
 export default router
