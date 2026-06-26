@@ -55,7 +55,11 @@ export const rotateRefreshToken = async (token: string) => {
   // valid -> rotate: new jti, same family
   const newJti = crypto.randomUUID()
   await redis.set(familyKey(payload.fam), newJti, 'EX', REFRESH_TTL_SECONDS)
-  const refreshToken = signRefreshToken({ ...payload, jti: newJti })
+  const refreshToken = signRefreshToken({
+    id: payload.id,
+    fam: payload.fam,
+    jti: newJti,
+  })
   return { userId: payload.id, refreshToken }
 }
 
