@@ -28,6 +28,9 @@ const EnvSchema = z.object({
       'JWT_SECRET must be at least 32 characters (use a long random string)'
     ),
   JWT_EXPIRES_IN: z.string().default('7d'),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
 
   // Cloudinary
   CLOUDINARY_CLOUD_NAME: z.string().min(1),

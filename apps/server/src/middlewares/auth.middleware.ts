@@ -9,8 +9,12 @@ interface TokenPayload {
   id: string
 }
 
-export const protect = async (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies?.token
+export const protect = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const token = req.cookies?.accessToken
 
   if (!token) {
     throw new AppError('You are not logged in', 401)

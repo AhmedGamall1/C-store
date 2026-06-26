@@ -13,6 +13,7 @@ import {
   sendVerificationEmail,
 } from './email.service.js'
 import type { RegisterInput, LoginInput } from '../schemas/auth.schema.js'
+import { rotateRefreshToken, signAccessToken } from './token.service.js'
 
 export const register = async (input: RegisterInput) => {
   const existing = await userRepo.findUserByEmail(input.email)
@@ -71,4 +72,18 @@ export const resetPassword = async (token: string, newPassword: string) => {
   if (!userId) throw new AppError('Invalid or expired reset link', 400)
   const password = await bcrypt.hash(newPassword, 12)
   await userRepo.updatePassword(userId, password)
+}
+
+export const refresh = async (refreshToken: string | undefined) => {
+  if (!refreshToken) throw new AppError('Not authenticated', 401)
+
+  const { userId, refreshToken: newRefreshToken } =
+    await rotateRefreshToken(refreshToken)
+
+  const user = await userRepo.findUserById(userId)
+  if (!user || !user.isActive)
+    throw new AppError('Account is not available', 401)
+
+  const accessToken = signAccessToken(user.id, user.role)
+  return { accessToken, refreshToken: newRefreshToken, user }
 }
