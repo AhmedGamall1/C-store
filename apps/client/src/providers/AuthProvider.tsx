@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import {
   useMutation,
   useQuery,
@@ -13,6 +13,7 @@ import {
   register as registerApi,
 } from '@/api/auth'
 import { mergeCart } from '@/api/cart'
+import { setSessionExpiredHandler } from '@/lib/api'
 import { getGuestItems, clearGuestCart } from '@/lib/guestCart'
 import type { User } from '@/types/api'
 
@@ -58,6 +59,14 @@ async function mergeGuestIntoServer(queryClient: QueryClient): Promise<void> {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
+
+  // When BOTH cookies are invalid, the api layer's refresh attempt fails and
+  // calls this to drop the cached identity, so the UI flips to "logged out"
+  // immediately (the global handler also redirects to /login for that request).
+  useEffect(() => {
+    setSessionExpiredHandler(() => queryClient.setQueryData(['me'], null))
+    return () => setSessionExpiredHandler(null)
+  }, [queryClient])
 
   // The single source of truth for "who's logged in".
   // 401 is expected (guest); don't retry and don't surface it as an error.
