@@ -25,10 +25,17 @@ interface CreateOrderResult {
 // POST /api/orders — works for both authenticated users (addressId) and
 // guests (guest + shippingAddress). Returns the created order, plus an
 // iframeUrl when paymentMethod=PAYMOB.
+//
+// `idempotencyKey` (a UUID, same value across retries of one submit) goes in the
+// Idempotency-Key header so a double-click / network retry replays the FIRST
+// response instead of creating a second order.
 export async function createOrder(
-  payload: CreateOrderPayload
+  payload: CreateOrderPayload,
+  idempotencyKey: string
 ): Promise<CreateOrderResult> {
-  const res = await api.post<{ data: CreateOrderResult }>('/orders', payload)
+  const res = await api.post<{ data: CreateOrderResult }>('/orders', payload, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  })
   return res.data
 }
 

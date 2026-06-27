@@ -8,9 +8,15 @@ import {
   getMyOrders,
   getMyOrder,
   cancelMyOrder,
+  type CreateOrderPayload,
 } from '@/api/orders'
 import { clearGuestCart } from '@/lib/guestCart'
 import type { ListParams, OrderStatus } from '@/types/api'
+
+export interface CreateOrderVars {
+  payload: CreateOrderPayload
+  idempotencyKey: string
+}
 
 // Admin: paginated list of all orders
 // (page, limit, status, paymentStatus, paymentMethod, q).
@@ -51,10 +57,16 @@ export function useUpdateOrderStatus() {
 export function useCreateOrder() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: createOrder,
-    onSuccess: (_data, variables) => {
+    // The key lives in the variables, so any retry of THIS mutation replays the
+    // exact same Idempotency-Key (idempotent retry).
+    mutationFn: ({ payload, idempotencyKey }: CreateOrderVars) =>
+      createOrder(payload, idempotencyKey),
+    // CheckoutPage owns error UX here — it keeps the duplicate-in-flight 409
+    // quiet — so don't let the global handler toast it.
+    meta: { silentError: true },
+    onSuccess: (_data, { payload }) => {
       qc.invalidateQueries({ queryKey: ['orders'] })
-      if (variables?.clearCart) {
+      if (payload.clearCart) {
         qc.invalidateQueries({ queryKey: ['cart'] })
         clearGuestCart()
       }

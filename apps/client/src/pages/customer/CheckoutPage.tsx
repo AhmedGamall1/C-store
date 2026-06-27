@@ -37,6 +37,9 @@ import { VerifyEmailNotice } from '@/components/auth/VerifyEmailNotice'
 import { useMyAddresses } from '@/hooks/useAddresses'
 import { useShippingRates } from '@/hooks/useShipping'
 import { useCreateOrder } from '@/hooks/useOrders'
+import { toast } from 'sonner'
+import { isApiError } from '@/lib/errors/ApiError'
+import { handleApiError } from '@/lib/errors/handler'
 import { GOVERNORATES } from '@/data/user'
 import {
   EGYPT_PHONE_HINT,
@@ -60,6 +63,8 @@ export default function CheckoutPage() {
   const createOrder = useCreateOrder()
 
   const [step, setStep] = useState(0)
+  // Stays true after a duplicate-in-flight 409 so the button can't resubmit.
+  const [isPlacing, setIsPlacing] = useState(false)
 
   // Authenticated: which saved address is selected
   const [selectedAddressId, setSelectedAddressId] = useState(null)
@@ -140,6 +145,11 @@ export default function CheckoutPage() {
   const back = () => setStep((s) => Math.max(0, s - 1))
 
   const placeOrder = async () => {
+    // ONE key per submit attempt. A retry of this same attempt reuses it
+    // (idempotent); a fresh attempt after a fix gets a brand-new key.
+    const idempotencyKey = crypto.randomUUID()
+    setIsPlacing(true)
+
     const items = cart.items.map((i) => ({
       productSizeId: i.productSizeId,
       quantity: i.quantity,
@@ -178,13 +188,28 @@ export default function CheckoutPage() {
     }))
 
     try {
-      const data = await createOrder.mutateAsync(payload)
+      const data = await createOrder.mutateAsync({ payload, idempotencyKey })
+      // Works for both COD (order only) and Paymob (order + iframeUrl); a
+      // replayed Paymob response still carries a valid iframeUrl.
       navigate(`/order/success/${data.order.id}`, {
         replace: true,
         state: { order: data.order, lineSnapshots },
       })
-    } catch {
-      // error toast handled in hook
+    } catch (e) {
+      // 409 "already being processed" = the FIRST request is still creating this
+      // order. Stay calm, don't resubmit, and keep the button locked.
+      if (
+        isApiError(e) &&
+        e.status === 409 &&
+        /already being processed/i.test(e.message)
+      ) {
+        toast.info('Your order is already being placed. Please hold on…')
+        return
+      }
+      // A real failure (out of stock, validation, etc.) — show it and let the
+      // user try again.
+      handleApiError(e)
+      setIsPlacing(false)
     }
   }
 
@@ -307,6 +332,7 @@ export default function CheckoutPage() {
                 disabled={
                   !stepValid ||
                   createOrder.isPending ||
+                  isPlacing ||
                   blockedLines.length > 0 ||
                   needsVerification
                 }
