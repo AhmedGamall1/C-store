@@ -200,35 +200,30 @@ export const verifyPaymobHmac = (
 
 export const handleWebhookTransaction = async (body: PaymobWebhookBody) => {
   const { obj } = body
-  const paymobOrderId = String(obj.order?.id)
 
-  const order = await orderRepo.findByPaymobOrderId(paymobOrderId)
-
-  if (!order || order.paymentStatus === 'PAID' || order.status === 'CANCELLED') {
-    return
-  }
   // 3DS still in progress — Paymob sends another event when it settles.
   if (obj.pending === true) return
 
+  const paymobOrderId = String(obj.order?.id)
+  const order = await orderRepo.findByPaymobOrderId(paymobOrderId)
+  if (!order) return
+
   if (obj.success === true) {
-    await orderRepo.updateOrder(order.id, {
-      paymentStatus: 'PAID',
-      status: 'CONFIRMED',
-      reservedUntil: null,
-    })
+    await orderRepo.markPaidIfUnpaid(order.id)
     return
   }
 
   await withTransaction(async (tx) => {
+    const { count } = await orderRepo.markCancelledIfActive(order.id, tx)
+    if (count === 0) return // a duplicate webhook already handled this
     for (const item of order.items) {
       if (item.productSizeId) {
-        await orderRepo.incrementSizeStock(item.productSizeId, item.quantity, tx)
+        await orderRepo.incrementSizeStock(
+          item.productSizeId,
+          item.quantity,
+          tx
+        )
       }
     }
-    await orderRepo.updateOrder(
-      order.id,
-      { status: 'CANCELLED', reservedUntil: null },
-      tx
-    )
   })
 }

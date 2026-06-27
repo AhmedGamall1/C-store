@@ -121,8 +121,10 @@ export const updateOrder = (
     include: orderInclude,
   })
 
-export const findByIdWithOrderInclude = (orderId: string, tx: DbClient = prisma) =>
-  tx.order.findUnique({ where: { id: orderId }, include: orderInclude })
+export const findByIdWithOrderInclude = (
+  orderId: string,
+  tx: DbClient = prisma
+) => tx.order.findUnique({ where: { id: orderId }, include: orderInclude })
 
 export const savePaymobOrderId = (orderId: string, paymobOrderId: string) =>
   prisma.order.update({
@@ -134,4 +136,26 @@ export const findByPaymobOrderId = (paymobOrderId: string) =>
   prisma.order.findFirst({
     where: { paymobOrderId },
     include: { items: true },
+  })
+
+// Mark paid exactly once — only if still unpaid and not cancelled.
+export const markPaidIfUnpaid = (orderId: string, tx: DbClient = prisma) =>
+  tx.order.updateMany({
+    where: {
+      id: orderId,
+      status: { not: 'CANCELLED' },
+      paymentStatus: 'UNPAID',
+    },
+    data: { paymentStatus: 'PAID', status: 'CONFIRMED', reservedUntil: null },
+  })
+
+// Cancel exactly once — only if not already cancelled and not paid.
+export const markCancelledIfActive = (orderId: string, tx: DbClient = prisma) =>
+  tx.order.updateMany({
+    where: {
+      id: orderId,
+      status: { not: 'CANCELLED' },
+      paymentStatus: { not: 'PAID' },
+    },
+    data: { status: 'CANCELLED', reservedUntil: null },
   })
