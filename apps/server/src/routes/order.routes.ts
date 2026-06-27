@@ -21,6 +21,7 @@ import {
   listOrdersAdminQuerySchema,
   idParamSchema,
 } from '../schemas/order.schema.js'
+import { idempotency } from '../middlewares/idempotency.middleware.js'
 
 const router = Router()
 
@@ -32,7 +33,7 @@ const validateCreateOrder: RequestHandler = (req, res, next) => {
   return validate({ body: schema })(req, res, next)
 }
 
-router.post('/', optionalAuth, validateCreateOrder, createOrder)
+router.post('/', optionalAuth, validateCreateOrder, idempotency, createOrder)
 
 router.use(protect)
 
