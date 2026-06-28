@@ -33,6 +33,7 @@ Table users {
   phone     varchar
   role      role      [not null, default: 'CUSTOMER']
   isActive  boolean   [not null, default: true]
+  emailVerified  boolean   [not null, default: false]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null]
 }
