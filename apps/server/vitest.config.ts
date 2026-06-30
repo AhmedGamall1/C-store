@@ -8,7 +8,11 @@ export default defineConfig({
     fileParallelism: false, // tests share one DB; files MUST run serially
 
     globalSetup: ['tests/setup/global.ts'],
-    setupFiles: ['tests/setup/env.ts', 'tests/setup/cleanup.ts'],
+    setupFiles: [
+      'tests/setup/env.ts',
+      'tests/setup/mocks.ts',
+      'tests/setup/cleanup.ts',
+    ],
 
     pool: 'forks',
     poolOptions: {

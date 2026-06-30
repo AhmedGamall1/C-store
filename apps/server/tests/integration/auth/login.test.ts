@@ -21,7 +21,7 @@ describe('POST /api/auth/login', () => {
     expect(res.body.data.user.password).toBeUndefined()
   })
 
-  it('sets an httpOnly auth cookie on success', async () => {
+  it('sets an httpOnly access-token cookie on success', async () => {
     await createUser({ email: 'jane@example.com', password: 'password123' })
 
     const res = await request(app)
@@ -29,9 +29,11 @@ describe('POST /api/auth/login', () => {
       .send({ email: 'jane@example.com', password: 'password123' })
 
     const setCookie = res.headers['set-cookie']
-    expect(setCookie[0]).toMatch(/^token=/)
+    expect(setCookie[0]).toMatch(/^accessToken=/)
     expect(setCookie[0]).toMatch(/HttpOnly/)
     expect(setCookie[0]).toMatch(/SameSite=Lax/i)
+    // A rotating refresh-token cookie is set too, scoped to the auth routes.
+    expect(setCookie.some((c) => /^refreshToken=/.test(c))).toBe(true)
   })
 
   it('accepts email with surrounding whitespace and uppercase', async () => {

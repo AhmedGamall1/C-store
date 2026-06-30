@@ -16,12 +16,16 @@ describe('POST /api/auth/logout', () => {
 
     // res.clearCookie sends a Set-Cookie with an empty value + past expiry
     const setCookie = res.headers['set-cookie']
-    expect(setCookie[0]).toMatch(/^token=;/)
+    expect(setCookie[0]).toMatch(/^accessToken=;/)
   })
 
-  it('returns 401 when called without a cookie (logout requires auth)', async () => {
+  it('is idempotent: returns 200 even without a cookie', async () => {
+    // Logout is public now — you must be able to end a session even when the
+    // short-lived access token has already expired. It just revokes the refresh
+    // session (if any) and clears the cookies.
     const res = await request(app).post('/api/auth/logout')
 
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(200)
+    expect(res.body.status).toBe('success')
   })
 })

@@ -109,7 +109,7 @@ describe('auth middleware: optionalAuth', () => {
   it('passes through silently on an invalid token (does not error)', async () => {
     const res = await request(testApp)
       .get('/optional')
-      .set('Cookie', 'token=garbage')
+      .set('Cookie', 'accessToken=garbage')
 
     expect(res.status).toBe(200)
     expect(res.body.userId).toBeNull()

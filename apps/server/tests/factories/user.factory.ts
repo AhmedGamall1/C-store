@@ -16,6 +16,9 @@ export const createUser = async (overrides = {}) => {
       lastName: overrides.lastName ?? 'User',
       role: overrides.role ?? 'CUSTOMER',
       isActive: overrides.isActive ?? true,
+      // Verified by default so a normal logged-in user passes `requireVerified`.
+      // Pass `emailVerified: false` to test the gating.
+      emailVerified: overrides.emailVerified ?? true,
       ...(overrides.phone && { phone: overrides.phone }),
     },
   })

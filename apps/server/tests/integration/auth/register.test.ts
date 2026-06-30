@@ -58,7 +58,7 @@ describe('POST /api/auth/register', () => {
     expect(user.cart.items).toEqual([])
   })
 
-  it('sets an httpOnly auth cookie', async () => {
+  it('sets an httpOnly access-token cookie', async () => {
     const res = await request(app).post('/api/auth/register').send({
       email: 'jane@example.com',
       password: 'password123',
@@ -68,9 +68,10 @@ describe('POST /api/auth/register', () => {
 
     const setCookie = res.headers['set-cookie']
     expect(setCookie).toBeDefined()
-    expect(setCookie[0]).toMatch(/^token=/)
+    expect(setCookie[0]).toMatch(/^accessToken=/)
     expect(setCookie[0]).toMatch(/HttpOnly/)
     expect(setCookie[0]).toMatch(/SameSite=Lax/i)
+    expect(setCookie.some((c) => /^refreshToken=/.test(c))).toBe(true)
   })
 
   it('lowercases and trims the email', async () => {

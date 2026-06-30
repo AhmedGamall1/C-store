@@ -60,7 +60,7 @@ export const register = async (req: Request, res: Response) => {
 // POST /api/auth/login
 export const login = async (req: Request, res: Response) => {
   const user = await authService.login(req.body)
-  await sendAuthResponse(user, 201, res)
+  await sendAuthResponse(user, 200, res)
 }
 
 // POST /api/auth/verify-email

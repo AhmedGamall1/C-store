@@ -1,14 +1,15 @@
 import jwt from 'jsonwebtoken'
 import { createUser } from '../factories/user.factory.js'
 
-// Build a JWT cookie for an existing user (matches auth.controller's format).
+// Build an access-token cookie for an existing user. `protect` / `optionalAuth`
+// now read the `accessToken` cookie (short-lived access token) — not `token`.
 export const cookieFor = (user) => {
   const token = jwt.sign(
     { id: user.id, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
   )
-  return `token=${token}`
+  return `accessToken=${token}`
 }
 
 export const loggedInUser = async (overrides = {}) => {
@@ -19,5 +20,5 @@ export const loggedInUser = async (overrides = {}) => {
 // For testing rejection paths: a syntactically valid but unverifiable token.
 export const tamperedCookie = () => {
   const token = jwt.sign({ id: 'x', role: 'CUSTOMER' }, 'wrong-secret')
-  return `token=${token}`
+  return `accessToken=${token}`
 }
